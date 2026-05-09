@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../theme/erp_theme.dart';
+import '../../attendance/screens/attendance_page.dart';
 import '../../auth/controllers/login_controller.dart';
+import '../../bonus/screens/bonus_page.dart';
+import '../../leave/screens/leave_page.dart';
 import '../../payroll/screens/payroll_page.dart';
 import '../../shift_history/screens/shift_history_page.dart';
 import '../../shift_production/screens/shift_production_page.dart';
@@ -12,7 +15,7 @@ import '../../wastage/screens/wastage_page.dart';
 ///
 /// Header: navy hero showing employee name + department + linked-id
 /// banner if the User has no Employee link.
-/// Body : 2x2 grid of feature cards for the four employee actions.
+/// Body : scrollable grid of feature cards.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -139,6 +142,22 @@ class HomePage extends StatelessWidget {
                       onTap:    () => Get.to(() => const ShiftHistoryPage()),
                     ),
                     _FeatureCard(
+                      title:    'Attendance',
+                      subtitle: 'Monthly calendar',
+                      icon:     Icons.calendar_month_outlined,
+                      color:    const Color(0xFF7C3AED),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const AttendancePage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Leave',
+                      subtitle: 'Request & track',
+                      icon:     Icons.event_available_outlined,
+                      color:    const Color(0xFF0EA5E9),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const LeavePage()),
+                    ),
+                    _FeatureCard(
                       title:    'Wastage\nReport',
                       subtitle: 'Last 50 records',
                       icon:     Icons.delete_sweep_outlined,
@@ -153,6 +172,14 @@ class HomePage extends StatelessWidget {
                       color:    ErpColors.successGreen,
                       enabled:  u.hasEmployeeLink,
                       onTap:    () => Get.to(() => const PayrollPage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Yearly\nBonus',
+                      subtitle: 'View & download',
+                      icon:     Icons.workspace_premium_outlined,
+                      color:    ErpColors.warningAmber,
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const BonusPage()),
                     ),
                   ],
                 ),
