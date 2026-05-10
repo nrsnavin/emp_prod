@@ -1,0 +1,116 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../../core/api_client.dart';
+import '../../../theme/erp_theme.dart';
+import '../../auth/controllers/login_controller.dart';
+
+/// Manages the worker's leave requests:
+///   - List (bucketed pending / approved / rejected)
+///   - Submit a new request
+///   - Cancel a pending one
+class LeaveController extends GetxController {
+  Dio get _dio => ApiClient.instance.dio;
+
+  final pending  = <Map<String, dynamic>>[].obs;
+  final approved = <Map<String, dynamic>>[].obs;
+  final rejected = <Map<String, dynamic>>[].obs;
+
+  final isLoading    = true.obs;
+  final isSubmitting = false.obs;
+  final errorMsg     = Rxn<String>();
+
+  String get _empId => LoginController.find.user.value.employeeId ?? '';
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchAll();
+  }
+
+  Future<void> fetchAll() async {
+    if (_empId.isEmpty) {
+      errorMsg.value = 'No employee record linked.';
+      isLoading.value = false;
+      return;
+    }
+    isLoading.value = true;
+    errorMsg.value  = null;
+    try {
+      final res = await _dio.get('/leave/employee/$_empId');
+      final list = ((res.data['data'] as List?) ?? const [])
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+
+      pending.assignAll(list.where((e) => e['status'] == 'pending'));
+      approved.assignAll(list.where((e) => e['status'] == 'approved'));
+      rejected.assignAll(list.where((e) => e['status'] == 'rejected'));
+    } on DioException catch (e) {
+      errorMsg.value = e.response?.data?['message']?.toString() ??
+          'Failed to load leave history';
+    } catch (e) {
+      errorMsg.value = e.toString();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> submit({
+    required DateTime date,
+    required String shift,        // DAY | NIGHT | BOTH
+    required String leaveType,    // casual | sick | earned | unpaid
+    required String reason,
+  }) async {
+    if (reason.trim().isEmpty) {
+      _snack('Validation', 'Reason is required', error: true);
+      return false;
+    }
+    isSubmitting.value = true;
+    try {
+      await _dio.post('/leave/request', data: {
+        'employeeId': _empId,
+        'date':       date.toIso8601String(),
+        'shift':      shift,
+        'leaveType':  leaveType,
+        'reason':     reason.trim(),
+      });
+      _snack('Submitted', 'Leave request sent for approval', error: false);
+      await fetchAll();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ??
+              'Could not submit request',
+          error: true);
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<bool> cancel(String id) async {
+    try {
+      await _dio.delete('/leave/$id');
+      _snack('Cancelled', 'Leave request withdrawn', error: false);
+      await fetchAll();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ?? 'Cancel failed',
+          error: true);
+      return false;
+    }
+  }
+
+  void _snack(String title, String msg, {required bool error}) {
+    Get.snackbar(
+      title,
+      msg,
+      backgroundColor:
+          error ? ErpColors.errorRed : ErpColors.successGreen,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+}
