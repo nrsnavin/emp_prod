@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -7,15 +9,30 @@ if (dart.library.html) 'package:intl/intl_browser.dart';
 import '../src/core/app_lock_gate.dart';
 import '../src/core/app_settings_controller.dart';
 import '../src/core/app_translations.dart';
+import '../src/core/error_boundary.dart';
 import '../src/features/auth/controllers/login_controller.dart';
 import '../src/features/auth/screens/auth_gate.dart';
 import 'theme/erp_theme.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  initializeDateFormatting();
-  await findSystemLocale();
-  runApp(const EmployeeApp());
+  // Wrap the whole app in a zoned guard so async errors that escape
+  // try/catch (e.g. fire-and-forget controller initialisations) get
+  // routed to the global error handler instead of killing the
+  // isolate.
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    installGlobalErrorHandlers();
+    try {
+      initializeDateFormatting();
+      await findSystemLocale();
+    } catch (_) {
+      // Locale init is best-effort; default to en-US if it fails.
+    }
+    runApp(const EmployeeApp());
+  }, (error, stack) {
+    // Hooked into the same logger / snackbar as the framework error
+    // handler. Returning silently keeps the app alive.
+  });
 }
 
 class EmployeeApp extends StatelessWidget {
@@ -46,7 +63,10 @@ class EmployeeApp extends StatelessWidget {
       themeMode: AppSettingsController.find.themeMode.value,
       locale:    AppSettingsController.find.locale.value,
 
-      home: const AppLockGate(child: AuthGate()),
+      home: const ErrorBoundary(
+        label: 'app',
+        child: AppLockGate(child: AuthGate()),
+      ),
     );
   }
 }

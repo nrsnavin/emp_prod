@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -45,12 +46,13 @@ class BonusController extends GetxController {
         '/bonus/employee/$_empId',
         queryParameters: {'year': selectedYear.value},
       );
-      final body = (res.data as Map).cast<String, dynamic>();
-      record.value = (body['record'] as Map?)?.cast<String, dynamic>();
-      config.value = (body['config'] as Map?)?.cast<String, dynamic>();
+      final body = SafeJson.asMap(res.data);
+      record.value = SafeJson.asMapOrNull(body['record']);
+      config.value = SafeJson.asMapOrNull(body['config']);
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
-          'Failed to load bonus';
+      errorMsg.value =
+          SafeJson.asStringOrNull(SafeJson.asMap(e.response?.data)['message'])
+              ?? 'Failed to load bonus';
     } catch (e) {
       errorMsg.value = e.toString();
     } finally {
@@ -88,8 +90,8 @@ class BonusController extends GetxController {
       );
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ??
-              'Could not download PDF',
+          SafeJson.asStringOrNull(SafeJson.asMap(e.response?.data)['message'])
+              ?? 'Could not download PDF',
           error: true);
     } catch (e) {
       _snack('Error', e.toString(), error: true);

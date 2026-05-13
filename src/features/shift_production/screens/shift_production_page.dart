@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/shift_production_controller.dart';
 
@@ -69,19 +70,13 @@ class _ShiftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = shift['date']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final shiftLabel = shift['shift']?.toString() ?? '—';
-    final machine    = (shift['machine'] is Map)
-        ? (shift['machine']['ID']?.toString() ?? '—')
-        : '—';
-    final orderRunning = (shift['machine'] is Map &&
-            shift['machine']['orderRunning'] is Map)
-        ? (shift['machine']['orderRunning']['orderNo']?.toString() ?? '')
-        : '';
+    final dt = SafeJson.asLocalDateTime(shift['date']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final shiftLabel = SafeJson.asString(shift['shift'], '—');
+    final machineMap = SafeJson.asMap(shift['machine']);
+    final machine    = SafeJson.asString(machineMap['ID'], '—');
+    final runningMap = SafeJson.asMap(machineMap['orderRunning']);
+    final orderRunning = SafeJson.asString(runningMap['orderNo']);
 
     return InkWell(
       onTap: () => _openSheet(context),

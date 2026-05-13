@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads the worker's currently OPEN shift with full machine +
@@ -33,9 +34,10 @@ class ActiveJobController extends GetxController {
     errorMsg.value  = null;
     try {
       final res = await _dio.get('/shift/active-job/$_empId');
-      shift.value = (res.data['shift'] as Map?)?.cast<String, dynamic>();
+      shift.value =
+          SafeJson.asMapOrNull(SafeJson.asMap(res.data)['shift']);
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load active job';
     } catch (e) {
       errorMsg.value = e.toString();

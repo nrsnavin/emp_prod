@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/notice_board_controller.dart';
 
@@ -61,20 +62,14 @@ class _NoticeCard extends StatelessWidget {
   const _NoticeCard({required this.n});
   @override
   Widget build(BuildContext context) {
-    final title    = n['title']?.toString() ?? '—';
-    final body     = n['body']?.toString() ?? '';
-    final type     = (n['type']?.toString() ?? 'info').toLowerCase();
-    final audience = (n['audience']?.toString() ?? 'all').toLowerCase();
-    final dept     = n['department']?.toString() ?? '';
-    final pinned   = n['isPinned'] == true;
-    final raw      = n['createdAt']?.toString();
-    String when = '';
-    if (raw != null) {
-      try {
-        when = DateFormat('dd MMM yyyy')
-            .format(DateTime.parse(raw).toLocal());
-      } catch (_) {}
-    }
+    final title    = SafeJson.asString(n['title'], '—');
+    final body     = SafeJson.asString(n['body']);
+    final type     = SafeJson.asString(n['type'], 'info').toLowerCase();
+    final audience = SafeJson.asString(n['audience'], 'all').toLowerCase();
+    final dept     = SafeJson.asString(n['department']);
+    final pinned   = SafeJson.asBool(n['isPinned']);
+    final dt       = SafeJson.asLocalDateTime(n['createdAt']);
+    final when     = dt == null ? '' : DateFormat('dd MMM yyyy').format(dt);
     final color = _typeColor(type);
     final icon  = _typeIcon(type);
 

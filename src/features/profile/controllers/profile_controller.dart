@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads the full Employee detail + last 10 shifts using
@@ -35,9 +36,9 @@ class ProfileController extends GetxController {
         queryParameters: {'id': _empId},
       );
       profile.value =
-          (res.data['employee'] as Map?)?.cast<String, dynamic>();
+          SafeJson.asMapOrNull(SafeJson.asMap(res.data)['employee']);
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load profile';
     } catch (e) {
       errorMsg.value = e.toString();

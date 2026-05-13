@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/error_boundary.dart';
 import '../../../theme/erp_theme.dart';
 import '../../active_job/screens/active_job_page.dart';
 import '../../attendance/screens/attendance_page.dart';
@@ -84,7 +85,8 @@ class HomePage extends StatelessWidget {
                       tooltip: 'Settings',
                       icon: const Icon(Icons.settings_outlined,
                           color: Colors.white, size: 20),
-                      onPressed: () => Get.to(() => const SettingsPage()),
+                      onPressed: () =>
+                          _open('Settings', const SettingsPage()),
                     ),
                     IconButton(
                       tooltip: 'Sign out',
@@ -143,7 +145,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.precision_manufacturing_outlined,
                       color:    ErpColors.accentBlue,
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const ShiftProductionPage()),
+                      onTap: () => _open('Shift Production',
+                          const ShiftProductionPage()),
                     ),
                     _FeatureCard(
                       title:    'Shift\nHistory',
@@ -151,7 +154,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.calendar_view_day_outlined,
                       color:    const Color(0xFF0891B2),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const ShiftHistoryPage()),
+                      onTap: () => _open('Shift History',
+                          const ShiftHistoryPage()),
                     ),
                     _FeatureCard(
                       title:    'Attendance',
@@ -159,7 +163,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.calendar_month_outlined,
                       color:    const Color(0xFF7C3AED),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const AttendancePage()),
+                      onTap: () =>
+                          _open('Attendance', const AttendancePage()),
                     ),
                     _FeatureCard(
                       title:    'Leave',
@@ -167,7 +172,7 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.event_available_outlined,
                       color:    const Color(0xFF0EA5E9),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const LeavePage()),
+                      onTap: () => _open('Leave', const LeavePage()),
                     ),
                     _FeatureCard(
                       title:    'Wastage\nReport',
@@ -175,7 +180,7 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.delete_sweep_outlined,
                       color:    ErpColors.errorRed,
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const WastagePage()),
+                      onTap: () => _open('Wastage', const WastagePage()),
                     ),
                     _FeatureCard(
                       title:    'Payroll',
@@ -183,7 +188,7 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.receipt_long_outlined,
                       color:    ErpColors.successGreen,
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const PayrollPage()),
+                      onTap: () => _open('Payroll', const PayrollPage()),
                     ),
                     _FeatureCard(
                       title:    'Yearly\nBonus',
@@ -191,7 +196,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.workspace_premium_outlined,
                       color:    ErpColors.warningAmber,
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const BonusPage()),
+                      onTap: () =>
+                          _open('Yearly Bonus', const BonusPage()),
                     ),
                     _FeatureCard(
                       title:    'Current\nJob',
@@ -199,7 +205,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.assignment_turned_in_outlined,
                       color:    const Color(0xFF14B8A6),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const ActiveJobPage()),
+                      onTap: () =>
+                          _open('Current Job', const ActiveJobPage()),
                     ),
                     _FeatureCard(
                       title:    'Machine\nIssues',
@@ -207,7 +214,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.build_circle_outlined,
                       color:    const Color(0xFFEA580C),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const MachineIssuePage()),
+                      onTap: () =>
+                          _open('Machine Issues', const MachineIssuePage()),
                     ),
                     _FeatureCard(
                       title:    'Notice\nBoard',
@@ -215,7 +223,8 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.campaign_outlined,
                       color:    const Color(0xFF6366F1),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const NoticeBoardPage()),
+                      onTap: () =>
+                          _open('Notice Board', const NoticeBoardPage()),
                     ),
                     _FeatureCard(
                       title:    'Feedback',
@@ -223,7 +232,7 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.forum_outlined,
                       color:    const Color(0xFFDB2777),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const FeedbackPage()),
+                      onTap: () => _open('Feedback', const FeedbackPage()),
                     ),
                     _FeatureCard(
                       title:    'My\nProfile',
@@ -231,7 +240,7 @@ class HomePage extends StatelessWidget {
                       icon:     Icons.person_outline,
                       color:    const Color(0xFF475569),
                       enabled:  u.hasEmployeeLink,
-                      onTap:    () => Get.to(() => const ProfilePage()),
+                      onTap: () => _open('Profile', const ProfilePage()),
                     ),
                   ],
                 ),
@@ -241,6 +250,13 @@ class HomePage extends StatelessWidget {
         }),
       ),
     );
+  }
+
+  /// Navigates to [page] wrapped in an ErrorBoundary so a crash on
+  /// that screen falls back to a recovery card instead of taking
+  /// the home dashboard down with it.
+  void _open(String label, Widget page) {
+    Get.to(() => ErrorBoundary(label: label, child: page));
   }
 }
 

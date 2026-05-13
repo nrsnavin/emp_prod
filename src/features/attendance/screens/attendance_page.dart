@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/attendance_controller.dart';
 
@@ -112,19 +113,19 @@ class _SummaryCard extends StatelessWidget {
           Text('${c.attendancePct}%', style: ErpTextStyles.kpiValue),
           const SizedBox(height: 14),
           Row(children: [
-            _MiniStat('Present', '${s['present'] ?? 0}'),
+            _MiniStat('Present', '${SafeJson.asInt(s['present'])}'),
             const SizedBox(width: 8),
-            _MiniStat('Late',    '${s['late'] ?? 0}'),
+            _MiniStat('Late',    '${SafeJson.asInt(s['late'])}'),
             const SizedBox(width: 8),
-            _MiniStat('Absent',  '${s['absent'] ?? 0}'),
+            _MiniStat('Absent',  '${SafeJson.asInt(s['absent'])}'),
           ]),
           const SizedBox(height: 8),
           Row(children: [
-            _MiniStat('Half Day', '${s['halfDay'] ?? 0}'),
+            _MiniStat('Half Day', '${SafeJson.asInt(s['halfDay'])}'),
             const SizedBox(width: 8),
-            _MiniStat('On Leave', '${s['onLeave'] ?? 0}'),
+            _MiniStat('On Leave', '${SafeJson.asInt(s['onLeave'])}'),
             const SizedBox(width: 8),
-            _MiniStat('Late Min', '${s['totalLateMin'] ?? 0}'),
+            _MiniStat('Late Min', '${SafeJson.asInt(s['totalLateMin'])}'),
           ]),
         ],
       ),
@@ -271,8 +272,8 @@ class _ShiftRow extends StatelessWidget {
         ]),
       );
     }
-    final s = (shift as Map).cast<String, dynamic>();
-    final status = (s['status']?.toString() ?? '').toLowerCase();
+    final s      = SafeJson.asMap(shift);
+    final status = SafeJson.asString(s['status']).toLowerCase();
     final color  = _statusColor(status);
     return Container(
       padding: const EdgeInsets.all(10),
@@ -305,21 +306,21 @@ class _ShiftRow extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 4),
-          if ((s['checkIn'] ?? '').toString().isNotEmpty)
-            Text('In: ${s['checkIn']}    Out: ${s['checkOut'] ?? '—'}',
+          if (SafeJson.asString(s['checkIn']).isNotEmpty)
+            Text('In: ${SafeJson.asString(s['checkIn'], '—')}    '
+                 'Out: ${SafeJson.asString(s['checkOut'], '—')}',
                 style: const TextStyle(
                     color: ErpColors.textSecondary, fontSize: 11)),
-          if ((s['lateMinutes'] ?? 0) is num &&
-              (s['lateMinutes'] as num) > 0)
-            Text('Late: ${s['lateMinutes']} min',
+          if ((SafeJson.asNum(s['lateMinutes']) ?? 0) > 0)
+            Text('Late: ${SafeJson.asNum(s['lateMinutes'])} min',
                 style: const TextStyle(
                     color: ErpColors.warningAmber,
                     fontSize: 11,
                     fontWeight: FontWeight.w700)),
-          if ((s['notes'] ?? '').toString().isNotEmpty)
+          if (SafeJson.asString(s['notes']).isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Note: ${s['notes']}',
+              child: Text('Note: ${SafeJson.asString(s['notes'])}',
                   style: const TextStyle(
                       color: ErpColors.textSecondary,
                       fontSize: 11,

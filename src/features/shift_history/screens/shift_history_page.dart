@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/shift_history_controller.dart';
 
@@ -94,17 +95,15 @@ class _ShiftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = s['date']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final shiftLabel = s['shift']?.toString() ?? '—';
-    final status     = (s['status']?.toString() ?? 'open').toLowerCase();
-    final production = (s['production'] as num?)?.toString() ??
-        (s['productionMeters'] as num?)?.toString() ?? '—';
-    final timer      = s['timer']?.toString() ?? '—';
-    final feedback   = s['feedback']?.toString() ?? '';
+    final dt = SafeJson.asLocalDateTime(s['date']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final shiftLabel = SafeJson.asString(s['shift'], '—');
+    final status     = SafeJson.asString(s['status'], 'open').toLowerCase();
+    final production = SafeJson.asNum(s['production'])?.toString()
+        ?? SafeJson.asNum(s['productionMeters'])?.toString()
+        ?? '—';
+    final timer    = SafeJson.asString(s['timer'], '—');
+    final feedback = SafeJson.asString(s['feedback']);
 
     final isClosed = status == 'closed';
     final chipBg   = isClosed

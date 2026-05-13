@@ -53,6 +53,7 @@ class _AppLockGateState extends State<AppLockGate>
 
   Future<void> _attemptUnlock() async {
     if (!_s.appLock.value || _s.unlocked.value) return;
+    if (!mounted) return;
     setState(() => _tryingBiometric = true);
     try {
       final supported = await _auth.canCheckBiometrics;
@@ -64,12 +65,10 @@ class _AppLockGateState extends State<AppLockGate>
             biometricOnly: false,
           ),
         );
-        if (ok) {
-          _s.markUnlocked();
-        }
+        if (ok) _s.markUnlocked();
       }
     } catch (_) {
-      // Fall through to PIN.
+      // Fall through to PIN (or no biometric hardware).
     } finally {
       if (mounted) setState(() => _tryingBiometric = false);
     }
@@ -77,6 +76,7 @@ class _AppLockGateState extends State<AppLockGate>
 
   Future<void> _submitPin() async {
     final ok = await _s.verifyPin(_pinCtrl.text);
+    if (!mounted) return;
     if (ok) {
       _s.markUnlocked();
       _pinCtrl.clear();

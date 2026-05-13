@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/active_job_controller.dart';
 import 'elastic_detail_sheet.dart';
@@ -57,12 +58,9 @@ class _ShiftHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('EEE, dd MMM yyyy');
-    final raw = shift['date']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final shiftLabel = (shift['shift']?.toString() ?? '—').toUpperCase();
+    final dt = SafeJson.asLocalDateTime(shift['date']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final shiftLabel = SafeJson.asString(shift['shift'], '—').toUpperCase();
     return Container(
       decoration: BoxDecoration(
         color: ErpColors.navyDark,
@@ -110,11 +108,11 @@ class _MachineCard extends StatelessWidget {
   const _MachineCard({required this.shift});
   @override
   Widget build(BuildContext context) {
-    final m = (shift['machine'] as Map?)?.cast<String, dynamic>() ?? {};
-    final id     = m['ID']?.toString() ?? '—';
-    final status = m['status']?.toString() ?? '—';
-    final heads  = (m['NoOfHead'] as num?)?.toInt() ?? 0;
-    final hooks  = (m['NoOfHooks'] as num?)?.toInt() ?? 0;
+    final m      = SafeJson.asMap(shift['machine']);
+    final id     = SafeJson.asString(m['ID'], '—');
+    final status = SafeJson.asString(m['status'], '—');
+    final heads  = SafeJson.asInt(m['NoOfHead']);
+    final hooks  = SafeJson.asInt(m['NoOfHooks']);
 
     return ErpSectionCard(
       title: 'MACHINE',
@@ -153,9 +151,9 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({required this.shift});
   @override
   Widget build(BuildContext context) {
-    final m = (shift['machine'] as Map?)?.cast<String, dynamic>() ?? {};
-    final running = (m['orderRunning'] as Map?)?.cast<String, dynamic>();
-    final shiftJob = (shift['job']      as Map?)?.cast<String, dynamic>();
+    final m        = SafeJson.asMap(shift['machine']);
+    final running  = SafeJson.asMapOrNull(m['orderRunning']);
+    final shiftJob = SafeJson.asMapOrNull(shift['job']);
 
     final job = running ?? shiftJob;
     if (job == null) {
@@ -170,20 +168,16 @@ class _OrderCard extends StatelessWidget {
         ),
       );
     }
-    final jobNo    = job['jobOrderNo']?.toString() ?? '—';
-    final status   = job['status']?.toString() ?? '—';
-    final order    = (job['order']    as Map?)?.cast<String, dynamic>();
-    final customer = (job['customer'] as Map?)?.cast<String, dynamic>();
-    final po       = order?['po']?.toString() ?? '—';
-    final cust     = customer?['name']?.toString() ?? '—';
-    final supplyRaw = order?['supplyDate']?.toString();
-    String supplyWhen = '—';
-    if (supplyRaw != null) {
-      try {
-        supplyWhen = DateFormat('dd MMM yyyy')
-            .format(DateTime.parse(supplyRaw).toLocal());
-      } catch (_) {}
-    }
+    final jobNo    = SafeJson.asString(job['jobOrderNo'], '—');
+    final status   = SafeJson.asString(job['status'], '—');
+    final order    = SafeJson.asMap(job['order']);
+    final customer = SafeJson.asMap(job['customer']);
+    final po       = SafeJson.asString(order['po'], '—');
+    final cust     = SafeJson.asString(customer['name'], '—');
+    final supplyDt = SafeJson.asLocalDateTime(order['supplyDate']);
+    final supplyWhen = supplyDt == null
+        ? '—'
+        : DateFormat('dd MMM yyyy').format(supplyDt);
 
     return ErpSectionCard(
       title: 'JOB ORDER',
@@ -257,19 +251,16 @@ class _ElasticsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Per-head mapping first (most useful on the floor).
-    final heads = ((shift['elastics'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
+    final heads = SafeJson.asMapList(shift['elastics']);
 
-    // Order-level elastics (qty per spec).
-    final m       = (shift['machine'] as Map?)?.cast<String, dynamic>() ?? {};
-    final running = (m['orderRunning'] as Map?)?.cast<String, dynamic>();
-    final orderElastics =
-        ((running?['elastics'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => e.cast<String, dynamic>())
-            .toList();
+    // Order-level elastics (qty per spec). Prefer the machine's
+    // currently-running order; fall back to the shift's own job if
+    // the machine has no active running ref.
+    final m              = SafeJson.asMap(shift['machine']);
+    final running        = SafeJson.asMapOrNull(m['orderRunning']);
+    final shiftJob       = SafeJson.asMapOrNull(shift['job']);
+    final orderElastics  = SafeJson.asMapList(
+      (running ?? shiftJob ?? const {})['elastics']);
 
     return ErpSectionCard(
       title: 'ELASTICS',
@@ -295,11 +286,11 @@ class _ElasticsCard extends StatelessWidget {
                       fontStyle: FontStyle.italic)),
             ),
             ...heads.map((h) {
-              final headNo = (h['head'] as num?)?.toInt() ?? 0;
-              final e      = (h['elastic'] as Map?)?.cast<String, dynamic>();
-              final name   = e?['name']?.toString() ?? '—';
-              final weave  = e?['weaveType']?.toString() ?? '';
-              final weight = (e?['weight'] as num?)?.toString() ?? '';
+              final headNo = SafeJson.asInt(h['head']);
+              final e      = SafeJson.asMapOrNull(h['elastic']);
+              final name   = SafeJson.asString(e?['name'], '—');
+              final weave  = SafeJson.asString(e?['weaveType']);
+              final weight = SafeJson.asNum(e?['weight'])?.toString() ?? '';
               return InkWell(
                 onTap: e == null
                     ? null
@@ -356,9 +347,9 @@ class _ElasticsCard extends StatelessWidget {
                 style: ErpTextStyles.fieldLabel),
             const SizedBox(height: 6),
             ...orderElastics.map((o) {
-              final e   = (o['elastic'] as Map?)?.cast<String, dynamic>();
-              final qty = (o['quantity'] as num?)?.toInt() ?? 0;
-              final name = e?['name']?.toString() ?? '—';
+              final e    = SafeJson.asMapOrNull(o['elastic']);
+              final qty  = SafeJson.asInt(o['quantity']);
+              final name = SafeJson.asString(e?['name'], '—');
               return InkWell(
                 onTap: e == null
                     ? null

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/wastage_controller.dart';
 
@@ -108,16 +109,15 @@ class _WastageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = w['createdAt']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final elastic = (w['elastic'] is Map ? w['elastic']['name'] : '') ?? '—';
-    final job     = (w['job']     is Map ? w['job']['jobOrderNo'] : '') ?? '';
-    final qty     = (w['quantity'] as num?)?.toDouble() ?? 0;
-    final penalty = (w['penalty']  as num?)?.toDouble() ?? 0;
-    final reason  = w['reason']?.toString() ?? '';
+    final dt  = SafeJson.asLocalDateTime(w['createdAt']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final elasticMap = SafeJson.asMap(w['elastic']);
+    final jobMap     = SafeJson.asMap(w['job']);
+    final elastic = SafeJson.asString(elasticMap['name'], '—');
+    final job     = SafeJson.asString(jobMap['jobOrderNo']);
+    final qty     = SafeJson.asDouble(w['quantity']);
+    final penalty = SafeJson.asDouble(w['penalty']);
+    final reason  = SafeJson.asString(w['reason']);
 
     return Container(
       decoration: ErpDecorations.card,

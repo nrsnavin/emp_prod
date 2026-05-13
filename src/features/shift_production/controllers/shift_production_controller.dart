@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -54,12 +55,10 @@ class ShiftProductionController extends GetxController {
         '/shift/employee-open-shifts',
         queryParameters: {'id': _employeeId},
       );
-      final list = (res.data['shifts'] as List? ?? [])
-          .map((e) => (e as Map).cast<String, dynamic>())
-          .toList();
-      shifts.assignAll(list);
+      shifts.assignAll(
+          SafeJson.asMapList(SafeJson.asMap(res.data)['shifts']));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load open shifts';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -101,7 +100,7 @@ class ShiftProductionController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Submission failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Submission failed',
           error: true);
       return false;
     } finally {

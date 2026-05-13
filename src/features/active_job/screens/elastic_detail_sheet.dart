@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 
 /// Bottom sheet that shows EVERY field on an Elastic document
@@ -102,9 +103,9 @@ class _Header extends StatelessWidget {
   const _Header({required this.elastic, this.headNo});
   @override
   Widget build(BuildContext context) {
-    final name      = elastic['name']?.toString() ?? '—';
-    final weaveType = elastic['weaveType']?.toString() ?? '—';
-    final image     = elastic['image']?.toString();
+    final name      = SafeJson.asString(elastic['name'], '—');
+    final weaveType = SafeJson.asString(elastic['weaveType'], '—');
+    final image     = SafeJson.asStringOrNull(elastic['image']);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
       child: Row(children: [
@@ -177,9 +178,9 @@ class _CompositionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final warpSpandex = (elastic['warpSpandex'] as Map?)?.cast<String, dynamic>();
-    final covering    = (elastic['spandexCovering'] as Map?)?.cast<String, dynamic>();
-    final weft        = (elastic['weftYarn'] as Map?)?.cast<String, dynamic>();
+    final warpSpandex = SafeJson.asMapOrNull(elastic['warpSpandex']);
+    final covering    = SafeJson.asMapOrNull(elastic['spandexCovering']);
+    final weft        = SafeJson.asMapOrNull(elastic['weftYarn']);
 
     return ErpSectionCard(
       title: 'WHAT IT\'S MADE OF',
@@ -190,10 +191,10 @@ class _CompositionSection extends StatelessWidget {
           help:  'The rubber thread that gives the elastic its stretch.',
           materialRef: warpSpandex?['id'],
           extra: [
-            if (warpSpandex?['ends'] != null)
-              ('Number of threads', '${warpSpandex!['ends']}'),
-            if (warpSpandex?['weight'] != null)
-              ('Weight', '${warpSpandex!['weight']} g'),
+            if (SafeJson.asNum(warpSpandex?['ends']) != null)
+              ('Number of threads', '${SafeJson.asNum(warpSpandex?['ends'])}'),
+            if (SafeJson.asNum(warpSpandex?['weight']) != null)
+              ('Weight', '${SafeJson.asNum(warpSpandex?['weight'])} g'),
           ],
         ),
         const _Divider(),
@@ -202,8 +203,8 @@ class _CompositionSection extends StatelessWidget {
           help:  'Wraps the rubber so it feels soft and holds the colour.',
           materialRef: covering?['id'],
           extra: [
-            if (covering?['weight'] != null)
-              ('Weight', '${covering!['weight']} g'),
+            if (SafeJson.asNum(covering?['weight']) != null)
+              ('Weight', '${SafeJson.asNum(covering?['weight'])} g'),
           ],
         ),
         const _Divider(),
@@ -212,8 +213,8 @@ class _CompositionSection extends StatelessWidget {
           help:  'Threads woven side-to-side; holds the warp together.',
           materialRef: weft?['id'],
           extra: [
-            if (weft?['weight'] != null)
-              ('Weight', '${weft!['weight']} g'),
+            if (SafeJson.asNum(weft?['weight']) != null)
+              ('Weight', '${SafeJson.asNum(weft?['weight'])} g'),
           ],
         ),
       ]),
@@ -228,12 +229,9 @@ class _ThreadsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final warpYarn = ((elastic['warpYarn'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
-    final spandexEnds = elastic['spandexEnds'];
-    final yarnEnds    = elastic['yarnEnds'];
+    final warpYarn    = SafeJson.asMapList(elastic['warpYarn']);
+    final spandexEnds = SafeJson.asNum(elastic['spandexEnds']);
+    final yarnEnds    = SafeJson.asNum(elastic['yarnEnds']);
 
     return ErpSectionCard(
       title: 'THREAD COUNT',
@@ -256,11 +254,11 @@ class _ThreadsSection extends StatelessWidget {
             ...warpYarn.asMap().entries.map((entry) {
               final i = entry.key + 1;
               final y = entry.value;
-              final mat   = (y['id'] as Map?)?.cast<String, dynamic>();
-              final name  = mat?['name']?.toString() ?? 'Yarn $i';
-              final ends  = y['ends']?.toString();
-              final type  = y['type']?.toString();
-              final wt    = y['weight']?.toString();
+              final mat   = SafeJson.asMapOrNull(y['id']);
+              final name  = SafeJson.asString(mat?['name'], 'Yarn $i');
+              final ends  = SafeJson.asNum(y['ends'])?.toString();
+              final type  = SafeJson.asStringOrNull(y['type']);
+              final wt    = SafeJson.asNum(y['weight'])?.toString();
               final parts = <String>[];
               if (ends   != null) parts.add('$ends threads');
               if (type   != null && type.isNotEmpty) parts.add('type $type');
@@ -316,9 +314,9 @@ class _WeaveSection extends StatelessWidget {
   const _WeaveSection({required this.elastic});
   @override
   Widget build(BuildContext context) {
-    final pick   = elastic['pick'];
-    final hooks  = elastic['noOfHook'];
-    final weight = elastic['weight'];
+    final pick   = SafeJson.asNum(elastic['pick']);
+    final hooks  = SafeJson.asNum(elastic['noOfHook']);
+    final weight = SafeJson.asNum(elastic['weight']);
     return ErpSectionCard(
       title: 'WEAVE SETTINGS',
       icon: Icons.settings_input_component_outlined,
@@ -342,26 +340,26 @@ class _TestingSection extends StatelessWidget {
   const _TestingSection({required this.elastic});
   @override
   Widget build(BuildContext context) {
-    final t = (elastic['testingParameters'] as Map?)?.cast<String, dynamic>()
-        ?? const {};
+    final t = SafeJson.asMap(elastic['testingParameters']);
+    final width      = SafeJson.asNum(t['width']);
+    final elongation = SafeJson.asNum(t['elongation']);
+    final recovery   = SafeJson.asNum(t['recovery']);
+    final strech     = SafeJson.asStringOrNull(t['strech']);
     return ErpSectionCard(
       title: 'QUALITY TARGETS',
       icon: Icons.rule_outlined,
       child: Column(children: [
-        _kv('Finished width', t['width'] != null ? '${t['width']} mm' : null,
+        _kv('Finished width', width != null ? '$width mm' : null,
             help: 'How wide the elastic should be after weaving.'),
         _kv('Maximum stretch',
-            t['elongation'] != null ? '${t['elongation']}%' : null,
+            elongation != null ? '$elongation%' : null,
             help: 'How much it can stretch before snapping back. '
                   'Higher = stretchier.'),
         _kv('Snap-back (recovery)',
-            t['recovery'] != null ? '${t['recovery']}%' : null,
+            recovery != null ? '$recovery%' : null,
             help: 'How well it returns to its original size. '
                   '100% = perfect rebound.'),
-        _kv('Stretch class',
-            (t['strech']?.toString().isNotEmpty ?? false)
-                ? t['strech'].toString()
-                : null,
+        _kv('Stretch class', strech,
             help: 'Grade for how stretchy the finished elastic is.'),
       ]),
     );
@@ -374,8 +372,8 @@ class _InventorySection extends StatelessWidget {
   const _InventorySection({required this.elastic});
   @override
   Widget build(BuildContext context) {
-    final produced = elastic['quantityProduced'];
-    final stock    = elastic['stock'];
+    final produced = SafeJson.asNum(elastic['quantityProduced']);
+    final stock    = SafeJson.asNum(elastic['stock']);
     return ErpSectionCard(
       title: 'INVENTORY',
       icon: Icons.inventory_2_outlined,
@@ -397,7 +395,7 @@ class _WarpingPlanSection extends StatelessWidget {
   const _WarpingPlanSection({required this.elastic});
   @override
   Widget build(BuildContext context) {
-    final plan = (elastic['warpingPlanTemplate'] as Map?)?.cast<String, dynamic>();
+    final plan = SafeJson.asMapOrNull(elastic['warpingPlanTemplate']);
     if (plan == null || plan.isEmpty) {
       return ErpSectionCard(
         title: 'BEAM SETUP',
@@ -410,11 +408,8 @@ class _WarpingPlanSection extends StatelessWidget {
         ),
       );
     }
-    final beams = ((plan['beams'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((e) => e.cast<String, dynamic>())
-        .toList();
-    final beamCount = plan['noOfBeams'];
+    final beams     = SafeJson.asMapList(plan['beams']);
+    final beamCount = SafeJson.asNum(plan['noOfBeams']);
 
     return ErpSectionCard(
       title: 'BEAM SETUP',
@@ -427,9 +422,9 @@ class _WarpingPlanSection extends StatelessWidget {
           if (beams.isNotEmpty) ...[
             const SizedBox(height: 8),
             ...beams.map((b) {
-              final no       = b['beamNo']?.toString() ?? '—';
-              final ends     = b['totalEnds']?.toString();
-              final paired   = b['pairedBeamNo']?.toString();
+              final no       = SafeJson.asString(b['beamNo'], '—');
+              final ends     = SafeJson.asNum(b['totalEnds'])?.toString();
+              final paired   = SafeJson.asStringOrNull(b['pairedBeamNo']);
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 3),
                 padding: const EdgeInsets.symmetric(
@@ -461,7 +456,7 @@ class _WarpingPlanSection extends StatelessWidget {
                             fontSize: 12,
                             fontWeight: FontWeight.w700)),
                   const Spacer(),
-                  if (paired != null && paired != 'null' && paired.isNotEmpty)
+                  if (paired != null && paired.isNotEmpty)
                     Text('paired with $paired',
                         style: const TextStyle(
                             color: ErpColors.textMuted, fontSize: 11)),
@@ -489,11 +484,9 @@ class _MaterialRow extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
-    final mat = (materialRef is Map)
-        ? (materialRef as Map).cast<String, dynamic>()
-        : null;
-    final matName     = mat?['name']?.toString() ?? 'Not specified';
-    final matCategory = mat?['category']?.toString() ?? '';
+    final mat = SafeJson.asMapOrNull(materialRef);
+    final matName     = SafeJson.asString(mat?['name'], 'Not specified');
+    final matCategory = SafeJson.asString(mat?['category']);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
