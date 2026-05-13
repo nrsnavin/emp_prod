@@ -7,6 +7,9 @@ import '../../../theme/erp_theme.dart';
 import '../controllers/active_job_controller.dart';
 import 'elastic_detail_sheet.dart';
 
+/// List of every shift the worker currently has open across all
+/// assigned machines / jobs. Tapping a card opens the per-shift
+/// detail view ([ActiveJobDetailPage]).
 class ActiveJobPage extends StatelessWidget {
   const ActiveJobPage({super.key});
 
@@ -18,7 +21,8 @@ class ActiveJobPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: ErpColors.navyDark,
         elevation: 0,
-        title: const Text('Current Job', style: ErpTextStyles.pageTitle),
+        title:
+            const Text('Current Jobs', style: ErpTextStyles.pageTitle),
       ),
       body: Obx(() {
         if (c.isLoading.value) {
@@ -28,7 +32,7 @@ class ActiveJobPage extends StatelessWidget {
         if (c.errorMsg.value != null) {
           return _Error(msg: c.errorMsg.value!, onRetry: c.fetch);
         }
-        if (c.shift.value == null) {
+        if (c.shifts.isEmpty) {
           return _Empty(onRefresh: c.fetch);
         }
         return RefreshIndicator(
@@ -36,17 +40,194 @@ class ActiveJobPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
             children: [
-              _ShiftHeader(shift: c.shift.value!),
-              const SizedBox(height: 14),
-              _MachineCard(shift: c.shift.value!),
-              const SizedBox(height: 14),
-              _OrderCard(shift: c.shift.value!),
-              const SizedBox(height: 14),
-              _ElasticsCard(shift: c.shift.value!),
+              _CountBanner(count: c.shifts.length),
+              const SizedBox(height: 10),
+              ...c.shifts.map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ShiftSummaryCard(shift: s),
+                  )),
             ],
           ),
         );
       }),
+    );
+  }
+}
+
+// ── Count banner ───────────────────────────────────────────────
+class _CountBanner extends StatelessWidget {
+  final int count;
+  const _CountBanner({required this.count});
+  @override
+  Widget build(BuildContext context) {
+    final label = count == 1
+        ? 'You have 1 active job right now.'
+        : 'You have $count active jobs running in parallel.';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ErpColors.accentBlue.withOpacity(0.08),
+        border: Border.all(color: ErpColors.accentBlue.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(children: [
+        const Icon(Icons.info_outline,
+            size: 16, color: ErpColors.accentBlue),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(
+                  color: ErpColors.accentBlue,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Summary card (used in the list) ────────────────────────────
+class _ShiftSummaryCard extends StatelessWidget {
+  final Map<String, dynamic> shift;
+  const _ShiftSummaryCard({required this.shift});
+  @override
+  Widget build(BuildContext context) {
+    final shiftLabel = SafeJson.asString(shift['shift'], '—').toUpperCase();
+    final dt         = SafeJson.asLocalDateTime(shift['date']);
+    final when       = dt == null
+        ? '—'
+        : DateFormat('dd MMM yyyy').format(dt);
+    final m          = SafeJson.asMap(shift['machine']);
+    final machineId  = SafeJson.asString(m['ID'], '—');
+    final running    = SafeJson.asMapOrNull(m['orderRunning']);
+    final shiftJob   = SafeJson.asMapOrNull(shift['job']);
+    final job        = running ?? shiftJob;
+    final jobNo      = SafeJson.asString(job?['jobOrderNo'], '—');
+    final order      = SafeJson.asMap(job?['order']);
+    final customer   = SafeJson.asString(
+        SafeJson.asMap(job?['customer'])['name'], '—');
+    final po         = SafeJson.asString(order['po'], '—');
+    final headCount  = SafeJson.asMapList(shift['elastics']).length;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => Get.to(() => ActiveJobDetailPage(shift: shift)),
+        child: Container(
+          decoration: ErpDecorations.card,
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: ErpColors.statusOpenBg,
+                    border: Border.all(color: ErpColors.statusOpenBorder),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('OPEN',
+                      style: TextStyle(
+                          color: ErpColors.statusOpenText,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800)),
+                ),
+                const SizedBox(width: 6),
+                Text(shiftLabel,
+                    style: const TextStyle(
+                        color: ErpColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800)),
+                const Spacer(),
+                Text(when,
+                    style: const TextStyle(
+                        color: ErpColors.textMuted, fontSize: 11)),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: ErpColors.accentBlue.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.precision_manufacturing_outlined,
+                      color: ErpColors.accentBlue, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('M-$machineId  ·  Job #$jobNo',
+                          style: const TextStyle(
+                              color: ErpColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text('$customer  ·  PO $po',
+                          style: const TextStyle(
+                              color: ErpColors.textSecondary,
+                              fontSize: 12),
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: ErpColors.textMuted, size: 20),
+              ]),
+              if (headCount > 0) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  const Icon(Icons.line_axis_outlined,
+                      size: 13, color: ErpColors.textMuted),
+                  const SizedBox(width: 4),
+                  Text('$headCount head${headCount == 1 ? "" : "s"} mapped',
+                      style: const TextStyle(
+                          color: ErpColors.textMuted, fontSize: 11)),
+                ]),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Per-shift detail view (opens from the list). Same four cards as
+/// before — header, machine, order, elastics.
+class ActiveJobDetailPage extends StatelessWidget {
+  final Map<String, dynamic> shift;
+  const ActiveJobDetailPage({super.key, required this.shift});
+
+  @override
+  Widget build(BuildContext context) {
+    final machineId =
+        SafeJson.asString(SafeJson.asMap(shift['machine'])['ID'], '—');
+    return Scaffold(
+      backgroundColor: ErpColors.bgBase,
+      appBar: AppBar(
+        backgroundColor: ErpColors.navyDark,
+        elevation: 0,
+        title:
+            Text('Job · M-$machineId', style: ErpTextStyles.pageTitle),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+        children: [
+          _ShiftHeader(shift: shift),
+          const SizedBox(height: 14),
+          _MachineCard(shift: shift),
+          const SizedBox(height: 14),
+          _OrderCard(shift: shift),
+          const SizedBox(height: 14),
+          _ElasticsCard(shift: shift),
+        ],
+      ),
     );
   }
 }

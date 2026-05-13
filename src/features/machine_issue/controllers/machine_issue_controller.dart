@@ -12,9 +12,13 @@ import '../../auth/controllers/login_controller.dart';
 class MachineIssueController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
-  final issues       = <Map<String, dynamic>>[].obs;
-  final activeMachineId = Rxn<String>(); // populated from active-job
-  final activeMachineLabel = ''.obs;
+  final issues          = <Map<String, dynamic>>[].obs;
+
+  /// All distinct machines this worker currently has open shifts
+  /// against. Each entry is the populated Machine sub-doc shape:
+  /// `{ _id, ID, status, NoOfHead, NoOfHooks, orderRunning, ... }`.
+  final activeMachines  = <Map<String, dynamic>>[].obs;
+
   final isLoading    = true.obs;
   final isSubmitting = false.obs;
   final errorMsg     = Rxn<String>();
@@ -39,17 +43,28 @@ class MachineIssueController extends GetxController {
       // Issues history.
       final histFut = _dio.get('/machine-issue/employee/$_empId');
 
-      // Active machine (so the form can default-fill it).
-      final activeFut = _dio.get('/shift/active-job/$_empId');
+      // ALL active machines (worker may be on multiple). The form
+      // will let the worker pick which one they're reporting on.
+      final activeFut = _dio.get('/shift/active-jobs/$_empId');
 
       final results = await Future.wait([histFut, activeFut]);
       issues.assignAll(
           SafeJson.asMapList(SafeJson.asMap(results[0].data)['data']));
 
-      final activeShift = SafeJson.asMap(results[1].data)['shift'];
-      final m = SafeJson.asMap(SafeJson.asMap(activeShift)['machine']);
-      activeMachineId.value    = SafeJson.asStringOrNull(m['_id']);
-      activeMachineLabel.value = SafeJson.asString(m['ID']);
+      // De-duplicate by machine _id; a worker can have several
+      // shifts on the SAME machine in a day.
+      final seen = <String>{};
+      final machines = <Map<String, dynamic>>[];
+      for (final s in SafeJson.asMapList(
+              SafeJson.asMap(results[1].data)['shifts'])) {
+        final m = SafeJson.asMapOrNull(s['machine']);
+        if (m == null) continue;
+        final id = SafeJson.asString(m['_id']);
+        if (id.isEmpty || seen.contains(id)) continue;
+        seen.add(id);
+        machines.add(m);
+      }
+      activeMachines.assignAll(machines);
     } on DioException catch (e) {
       errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load issues';

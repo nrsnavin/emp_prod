@@ -5,14 +5,20 @@ import '../../../core/api_client.dart';
 import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
-/// Loads the worker's currently OPEN shift with full machine +
-/// orderRunning + elastics populate. Backed by
-/// `GET /shift/active-job/:empId`. Returns null when there's no
-/// open shift for this worker.
+/// Loads ALL of the worker's currently OPEN shifts.
+///
+/// A worker can be running multiple machines / job orders at the
+/// same time (e.g. weaving on M-12 and M-18 during the DAY shift).
+/// The Worker Portal lists them; each is deep-populated with
+/// machine + orderRunning + elastics so the detail screen needs
+/// zero further round trips.
+///
+/// Backed by `GET /shift/active-jobs/:empId` which returns
+/// `{ success, count, shifts: [...] }`.
 class ActiveJobController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
-  final shift     = Rxn<Map<String, dynamic>>();
+  final shifts    = <Map<String, dynamic>>[].obs;
   final isLoading = true.obs;
   final errorMsg  = Rxn<String>();
 
@@ -33,16 +39,32 @@ class ActiveJobController extends GetxController {
     isLoading.value = true;
     errorMsg.value  = null;
     try {
-      final res = await _dio.get('/shift/active-job/$_empId');
-      shift.value =
-          SafeJson.asMapOrNull(SafeJson.asMap(res.data)['shift']);
+      final res = await _dio.get('/shift/active-jobs/$_empId');
+      shifts.assignAll(
+          SafeJson.asMapList(SafeJson.asMap(res.data)['shifts']));
     } on DioException catch (e) {
       errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
-          'Failed to load active job';
+          'Failed to load active jobs';
     } catch (e) {
       errorMsg.value = e.toString();
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Helpers used elsewhere (e.g. Machine Issue form) to pick from
+  /// the currently-running machines without re-fetching.
+  List<Map<String, dynamic>> get activeMachines {
+    final out = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final s in shifts) {
+      final m = SafeJson.asMapOrNull(s['machine']);
+      if (m == null) continue;
+      final id = SafeJson.asString(m['_id']);
+      if (id.isEmpty || seen.contains(id)) continue;
+      seen.add(id);
+      out.add(m);
+    }
+    return out;
   }
 }
