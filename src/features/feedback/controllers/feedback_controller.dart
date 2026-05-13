@@ -1,0 +1,106 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../../core/api_client.dart';
+import '../../../theme/erp_theme.dart';
+import '../../auth/controllers/login_controller.dart';
+
+/// Manages worker-filed complaints + suggestions through
+/// /feedback endpoints.
+class FeedbackController extends GetxController {
+  Dio get _dio => ApiClient.instance.dio;
+
+  final items        = <Map<String, dynamic>>[].obs;
+  final isLoading    = true.obs;
+  final isSubmitting = false.obs;
+  final errorMsg     = Rxn<String>();
+
+  String get _empId => LoginController.find.user.value.employeeId ?? '';
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetch();
+  }
+
+  Future<void> fetch() async {
+    if (_empId.isEmpty) {
+      errorMsg.value = 'No employee record linked.';
+      isLoading.value = false;
+      return;
+    }
+    isLoading.value = true;
+    errorMsg.value  = null;
+    try {
+      final res = await _dio.get('/feedback/employee/$_empId');
+      items.assignAll(
+          ((res.data['data'] as List?) ?? const [])
+              .map((e) => (e as Map).cast<String, dynamic>())
+              .toList());
+    } on DioException catch (e) {
+      errorMsg.value = e.response?.data?['message']?.toString() ??
+          'Failed to load feedback';
+    } catch (e) {
+      errorMsg.value = e.toString();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> submit({
+    required String type,         // complaint | suggestion
+    required String category,
+    required String subject,
+    required String body,
+    required bool isAnonymous,
+  }) async {
+    if (subject.trim().isEmpty || body.trim().isEmpty) {
+      _snack('Validation', 'Subject and body are required', error: true);
+      return false;
+    }
+    isSubmitting.value = true;
+    try {
+      await _dio.post('/feedback', data: {
+        'employeeId':  _empId,
+        'type':        type,
+        'category':    category,
+        'subject':     subject.trim(),
+        'body':        body.trim(),
+        'isAnonymous': isAnonymous,
+      });
+      _snack('Submitted', 'HR will review your submission', error: false);
+      await fetch();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ?? 'Submit failed',
+          error: true);
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<bool> withdraw(String id) async {
+    try {
+      await _dio.delete('/feedback/$id');
+      _snack('Withdrawn', 'Submission removed', error: false);
+      await fetch();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ?? 'Withdraw failed',
+          error: true);
+      return false;
+    }
+  }
+
+  void _snack(String title, String msg, {required bool error}) {
+    Get.snackbar(title, msg,
+        backgroundColor:
+            error ? ErpColors.errorRed : ErpColors.successGreen,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM);
+  }
+}

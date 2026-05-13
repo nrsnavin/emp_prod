@@ -1,0 +1,125 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../../core/api_client.dart';
+import '../../../theme/erp_theme.dart';
+import '../../auth/controllers/login_controller.dart';
+
+/// Lets the worker file a machine breakdown / maintenance request
+/// and track its status. Backed by /machine-issue endpoints.
+class MachineIssueController extends GetxController {
+  Dio get _dio => ApiClient.instance.dio;
+
+  final issues       = <Map<String, dynamic>>[].obs;
+  final activeMachineId = Rxn<String>(); // populated from active-job
+  final activeMachineLabel = ''.obs;
+  final isLoading    = true.obs;
+  final isSubmitting = false.obs;
+  final errorMsg     = Rxn<String>();
+
+  String get _empId => LoginController.find.user.value.employeeId ?? '';
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchAll();
+  }
+
+  Future<void> fetchAll() async {
+    if (_empId.isEmpty) {
+      errorMsg.value = 'No employee record linked.';
+      isLoading.value = false;
+      return;
+    }
+    isLoading.value = true;
+    errorMsg.value  = null;
+    try {
+      // Issues history.
+      final histFut = _dio.get('/machine-issue/employee/$_empId');
+
+      // Active machine (so the form can default-fill it).
+      final activeFut = _dio.get('/shift/active-job/$_empId');
+
+      final results = await Future.wait([histFut, activeFut]);
+      issues.assignAll(
+          ((results[0].data['data'] as List?) ?? const [])
+              .map((e) => (e as Map).cast<String, dynamic>())
+              .toList());
+
+      final activeShift =
+          (results[1].data['shift'] as Map?)?.cast<String, dynamic>();
+      final m =
+          (activeShift?['machine'] as Map?)?.cast<String, dynamic>();
+      activeMachineId.value    = m?['_id']?.toString();
+      activeMachineLabel.value = m?['ID']?.toString() ?? '';
+    } on DioException catch (e) {
+      errorMsg.value = e.response?.data?['message']?.toString() ??
+          'Failed to load issues';
+    } catch (e) {
+      errorMsg.value = e.toString();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> submit({
+    required String machineId,
+    required String title,
+    required String description,
+    required String severity,
+  }) async {
+    if (machineId.isEmpty) {
+      _snack('Validation', 'No machine to report against', error: true);
+      return false;
+    }
+    if (title.trim().isEmpty || description.trim().isEmpty) {
+      _snack('Validation', 'Title and description are required',
+          error: true);
+      return false;
+    }
+    isSubmitting.value = true;
+    try {
+      await _dio.post('/machine-issue', data: {
+        'machineId':   machineId,
+        'employeeId':  _empId,
+        'title':       title.trim(),
+        'description': description.trim(),
+        'severity':    severity,
+      });
+      _snack('Reported', 'Maintenance team has been notified',
+          error: false);
+      await fetchAll();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ?? 'Submit failed',
+          error: true);
+      return false;
+    } finally {
+      isSubmitting.value = false;
+    }
+  }
+
+  Future<bool> withdraw(String id) async {
+    try {
+      await _dio.delete('/machine-issue/$id');
+      _snack('Withdrawn', 'Issue removed', error: false);
+      await fetchAll();
+      return true;
+    } on DioException catch (e) {
+      _snack('Error',
+          e.response?.data?['message']?.toString() ?? 'Cancel failed',
+          error: true);
+      return false;
+    }
+  }
+
+  void _snack(String title, String msg, {required bool error}) {
+    Get.snackbar(title, msg,
+        backgroundColor:
+            error ? ErpColors.errorRed : ErpColors.successGreen,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM);
+  }
+}
