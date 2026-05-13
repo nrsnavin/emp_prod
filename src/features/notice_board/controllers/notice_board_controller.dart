@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads active announcements for the worker's department from
@@ -30,11 +31,9 @@ class NoticeBoardController extends GetxController {
         queryParameters: {'dept': _dept},
       );
       notices.assignAll(
-          ((res.data['data'] as List?) ?? const [])
-              .map((e) => (e as Map).cast<String, dynamic>())
-              .toList());
+          SafeJson.asMapList(SafeJson.asMap(res.data)['data']));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load notices';
     } catch (e) {
       errorMsg.value = e.toString();

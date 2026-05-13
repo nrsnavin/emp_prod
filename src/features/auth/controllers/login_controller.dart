@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../models/employee_user.dart';
 import 'storage_keys.dart';
@@ -55,7 +56,7 @@ class LoginController extends GetxController {
       try {
         final res = await _dio.get('/user/me');
         final u = EmployeeUser.fromMe(
-            (res.data['user'] as Map).cast<String, dynamic>());
+            SafeJson.asMap(SafeJson.asMap(res.data)['user']));
         await _persistSession(prefs, u, storedToken);
         user.value     = u;
         isLoggedIn.value = true;
@@ -94,8 +95,8 @@ class LoginController extends GetxController {
         'email':    email.trim(),
         'password': password,
       });
-      final body = (res.data as Map).cast<String, dynamic>();
-      final token = body['token']?.toString() ?? '';
+      final body  = SafeJson.asMap(res.data);
+      final token = SafeJson.asString(body['token']);
       if (token.isEmpty) throw 'No token returned';
 
       // Persist the cookie immediately so the follow-up /me call
@@ -106,7 +107,7 @@ class LoginController extends GetxController {
       // Bootstrap the linked employee.
       final me  = await _dio.get('/user/me');
       final u   = EmployeeUser.fromMe(
-          (me.data['user'] as Map).cast<String, dynamic>());
+          SafeJson.asMap(SafeJson.asMap(me.data)['user']));
       await _persistSession(prefs, u, token);
 
       user.value       = u;
@@ -115,7 +116,7 @@ class LoginController extends GetxController {
       _snack('Welcome back', u.name.isNotEmpty ? u.name : u.email,
           error: false);
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'Login failed';
+      final msg = SafeJson.asMap(e.response?.data)['message'] ?? 'Login failed';
       _snack('Login failed', msg.toString(), error: true);
     } catch (e) {
       _snack('Login failed', e.toString(), error: true);

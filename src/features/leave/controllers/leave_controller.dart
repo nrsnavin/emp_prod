@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -39,15 +40,14 @@ class LeaveController extends GetxController {
     errorMsg.value  = null;
     try {
       final res = await _dio.get('/leave/employee/$_empId');
-      final list = ((res.data['data'] as List?) ?? const [])
-          .map((e) => (e as Map).cast<String, dynamic>())
-          .toList();
+      final list =
+          SafeJson.asMapList(SafeJson.asMap(res.data)['data']);
 
       pending.assignAll(list.where((e) => e['status'] == 'pending'));
       approved.assignAll(list.where((e) => e['status'] == 'approved'));
       rejected.assignAll(list.where((e) => e['status'] == 'rejected'));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load leave history';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -80,7 +80,7 @@ class LeaveController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ??
+          SafeJson.apiErrorMessage(e.response?.data) ??
               'Could not submit request',
           error: true);
       return false;
@@ -97,7 +97,7 @@ class LeaveController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Cancel failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Cancel failed',
           error: true);
       return false;
     }

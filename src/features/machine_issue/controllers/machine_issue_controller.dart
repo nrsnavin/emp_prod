@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -43,18 +44,14 @@ class MachineIssueController extends GetxController {
 
       final results = await Future.wait([histFut, activeFut]);
       issues.assignAll(
-          ((results[0].data['data'] as List?) ?? const [])
-              .map((e) => (e as Map).cast<String, dynamic>())
-              .toList());
+          SafeJson.asMapList(SafeJson.asMap(results[0].data)['data']));
 
-      final activeShift =
-          (results[1].data['shift'] as Map?)?.cast<String, dynamic>();
-      final m =
-          (activeShift?['machine'] as Map?)?.cast<String, dynamic>();
-      activeMachineId.value    = m?['_id']?.toString();
-      activeMachineLabel.value = m?['ID']?.toString() ?? '';
+      final activeShift = SafeJson.asMap(results[1].data)['shift'];
+      final m = SafeJson.asMap(SafeJson.asMap(activeShift)['machine']);
+      activeMachineId.value    = SafeJson.asStringOrNull(m['_id']);
+      activeMachineLabel.value = SafeJson.asString(m['ID']);
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load issues';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -93,7 +90,7 @@ class MachineIssueController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Submit failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Submit failed',
           error: true);
       return false;
     } finally {
@@ -109,7 +106,7 @@ class MachineIssueController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Cancel failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Cancel failed',
           error: true);
       return false;
     }

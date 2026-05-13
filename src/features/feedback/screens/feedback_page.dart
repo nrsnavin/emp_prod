@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/feedback_controller.dart';
 
@@ -87,18 +88,15 @@ class _FeedbackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = item['createdAt']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final type     = (item['type']?.toString() ?? '—').toLowerCase();
-    final category = item['category']?.toString() ?? '';
-    final subject  = item['subject']?.toString() ?? '—';
-    final body     = item['body']?.toString() ?? '';
-    final status   = (item['status']?.toString() ?? 'open').toLowerCase();
-    final response = item['response']?.toString() ?? '';
-    final id       = item['_id']?.toString() ?? '';
+    final dt = SafeJson.asLocalDateTime(item['createdAt']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final type     = SafeJson.asString(item['type'], '—').toLowerCase();
+    final category = SafeJson.asString(item['category']);
+    final subject  = SafeJson.asString(item['subject'], '—');
+    final body     = SafeJson.asString(item['body']);
+    final status   = SafeJson.asString(item['status'], 'open').toLowerCase();
+    final response = SafeJson.asString(item['response']);
+    final id       = SafeJson.asString(item['_id']);
 
     final typeColor = type == 'complaint'
         ? ErpColors.errorRed

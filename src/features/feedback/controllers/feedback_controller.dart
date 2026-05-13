@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -35,11 +36,9 @@ class FeedbackController extends GetxController {
     try {
       final res = await _dio.get('/feedback/employee/$_empId');
       items.assignAll(
-          ((res.data['data'] as List?) ?? const [])
-              .map((e) => (e as Map).cast<String, dynamic>())
-              .toList());
+          SafeJson.asMapList(SafeJson.asMap(res.data)['data']));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load feedback';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -74,7 +73,7 @@ class FeedbackController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Submit failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Submit failed',
           error: true);
       return false;
     } finally {
@@ -90,7 +89,7 @@ class FeedbackController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ?? 'Withdraw failed',
+          SafeJson.apiErrorMessage(e.response?.data) ?? 'Withdraw failed',
           error: true);
       return false;
     }

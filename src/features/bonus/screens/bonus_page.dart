@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/bonus_controller.dart';
 
@@ -88,19 +89,14 @@ class _BonusHeroCard extends StatelessWidget {
   const _BonusHeroCard({required this.c});
   @override
   Widget build(BuildContext context) {
-    final r       = c.record.value!;
-    final cfg     = c.config.value;
-    final status  = (r['status']?.toString() ?? 'pending').toLowerCase();
-    final amount  = (r['bonusAmount'] as num?)?.toDouble() ?? 0;
-    final label   = cfg?['bonusLabel']?.toString();
-    final dateRaw = cfg?['bonusDate']?.toString();
-    String? payoutWhen;
-    if (dateRaw != null && dateRaw.isNotEmpty) {
-      try {
-        payoutWhen = DateFormat('dd MMM yyyy')
-            .format(DateTime.parse(dateRaw).toLocal());
-      } catch (_) {}
-    }
+    final r      = c.record.value!;
+    final cfg    = c.config.value;
+    final status = SafeJson.asString(r['status'], 'pending').toLowerCase();
+    final amount = SafeJson.asDouble(r['bonusAmount']);
+    final label  = SafeJson.asStringOrNull(cfg?['bonusLabel']);
+    final dt     = SafeJson.asLocalDateTime(cfg?['bonusDate']);
+    final payoutWhen =
+        dt == null ? null : DateFormat('dd MMM yyyy').format(dt);
 
     return Container(
       decoration: BoxDecoration(
@@ -159,11 +155,11 @@ class _TierCard extends StatelessWidget {
   const _TierCard({required this.record});
   @override
   Widget build(BuildContext context) {
-    final tier   = record['attendanceTier']?.toString() ?? 'C';
-    final mult   = (record['multiplier']     as num?)?.toDouble() ?? 0;
-    final rate   = (record['attendanceRate'] as num?)?.toDouble() ?? 0;
-    final days   = (record['attendanceDays'] as num?)?.toInt() ?? 0;
-    final total  = (record['totalWorkingDays'] as num?)?.toInt() ?? 0;
+    final tier  = SafeJson.asString(record['attendanceTier'], 'C');
+    final mult  = SafeJson.asDouble(record['multiplier']);
+    final rate  = SafeJson.asDouble(record['attendanceRate']);
+    final days  = SafeJson.asInt(record['attendanceDays']);
+    final total = SafeJson.asInt(record['totalWorkingDays']);
 
     Color tierColor;
     String tierLabel;
@@ -227,11 +223,11 @@ class _BreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hourly = (record['hourlyRate']     as num?)?.toDouble() ?? 0;
-    final hours  = (record['hoursWorked']    as num?)?.toDouble() ?? 0;
-    final earn   = (record['annualEarnings'] as num?)?.toDouble() ?? 0;
-    final pct    = (record['bonusPercent']   as num?)?.toDouble() ?? 0;
-    final raw    = (record['rawBonusAmount'] as num?)?.toDouble() ?? 0;
+    final hourly = SafeJson.asDouble(record['hourlyRate']);
+    final hours  = SafeJson.asDouble(record['hoursWorked']);
+    final earn   = SafeJson.asDouble(record['annualEarnings']);
+    final pct    = SafeJson.asDouble(record['bonusPercent']);
+    final raw    = SafeJson.asDouble(record['rawBonusAmount']);
 
     return ErpSectionCard(
       title: 'BREAKDOWN',

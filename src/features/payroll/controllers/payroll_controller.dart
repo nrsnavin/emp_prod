@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
@@ -43,24 +44,22 @@ class PayrollController extends GetxController {
           'year':  selectedYear.value,
           'month': selectedMonth.value,
         },
-      ).then<Map<String, dynamic>?>((res) =>
-          (res.data['data'] as Map?)?.cast<String, dynamic>())
+      ).then<Map<String, dynamic>?>(
+          (res) => SafeJson.asMapOrNull(SafeJson.asMap(res.data)['data']))
           .catchError((_) => null);
 
       final advFut = _dio.get(
         '/payroll/advance',
         queryParameters: {'employeeId': _empId},
-      ).then<List<Map<String, dynamic>>>((res) =>
-          ((res.data['data'] as List?) ?? const [])
-              .map((e) => (e as Map).cast<String, dynamic>())
-              .toList())
+      ).then<List<Map<String, dynamic>>>(
+          (res) => SafeJson.asMapList(SafeJson.asMap(res.data)['data']))
           .catchError((_) => const <Map<String, dynamic>>[]);
 
       final results = await Future.wait([slipFut, advFut]);
       slip.value     = results[0] as Map<String, dynamic>?;
       advances.assignAll(results[1] as List<Map<String, dynamic>>);
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load payroll';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -95,7 +94,7 @@ class PayrollController extends GetxController {
       return true;
     } on DioException catch (e) {
       _snack('Error',
-          e.response?.data?['message']?.toString() ??
+          SafeJson.apiErrorMessage(e.response?.data) ??
               'Could not submit request',
           error: true);
       return false;

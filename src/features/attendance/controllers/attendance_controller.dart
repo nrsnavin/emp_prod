@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads the logged-in employee's monthly attendance grid from
@@ -46,13 +47,12 @@ class AttendanceController extends GetxController {
           'month': selectedMonth.value,
         },
       );
-      final body = (res.data as Map).cast<String, dynamic>();
-      stats.value       = (body['stats'] as Map?)?.cast<String, dynamic>();
-      daysInMonth.value = (body['daysInMonth'] as num?)?.toInt() ?? 0;
-      calendar.assignAll(((body['calendar'] as List?) ?? const [])
-          .map((e) => (e as Map).cast<String, dynamic>()));
+      final body = SafeJson.asMap(res.data);
+      stats.value       = SafeJson.asMapOrNull(body['stats']);
+      daysInMonth.value = SafeJson.asInt(body['daysInMonth']);
+      calendar.assignAll(SafeJson.asMapList(body['calendar']));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load attendance';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -82,11 +82,11 @@ class AttendanceController extends GetxController {
   int get attendancePct {
     final s = stats.value;
     if (s == null) return 0;
-    final total = (s['total'] as num?)?.toInt() ?? 0;
+    final total = SafeJson.asInt(s['total']);
     if (total == 0) return 0;
-    final present  = (s['present']  as num?)?.toDouble() ?? 0;
-    final late     = (s['late']     as num?)?.toDouble() ?? 0;
-    final halfDay  = (s['halfDay']  as num?)?.toDouble() ?? 0;
+    final present = SafeJson.asDouble(s['present']);
+    final late    = SafeJson.asDouble(s['late']);
+    final halfDay = SafeJson.asDouble(s['halfDay']);
     return ((present + late + halfDay * 0.5) / total * 100).round();
   }
 }

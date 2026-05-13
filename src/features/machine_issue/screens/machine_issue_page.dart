@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/machine_issue_controller.dart';
 
@@ -86,19 +87,16 @@ class _IssueCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
-    final raw = issue['createdAt']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final title = issue['title']?.toString() ?? '—';
-    final desc  = issue['description']?.toString() ?? '';
-    final sev   = (issue['severity']?.toString() ?? 'medium').toLowerCase();
-    final status = (issue['status']?.toString() ?? 'open').toLowerCase();
-    final machine = (issue['machine'] as Map?)?.cast<String, dynamic>();
-    final machineId = machine?['ID']?.toString() ?? '—';
-    final id = issue['_id']?.toString() ?? '';
-    final notes = issue['resolutionNotes']?.toString() ?? '';
+    final dt = SafeJson.asLocalDateTime(issue['createdAt']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final title  = SafeJson.asString(issue['title'], '—');
+    final desc   = SafeJson.asString(issue['description']);
+    final sev    = SafeJson.asString(issue['severity'], 'medium').toLowerCase();
+    final status = SafeJson.asString(issue['status'], 'open').toLowerCase();
+    final machine = SafeJson.asMap(issue['machine']);
+    final machineId = SafeJson.asString(machine['ID'], '—');
+    final id = SafeJson.asString(issue['_id']);
+    final notes = SafeJson.asString(issue['resolutionNotes']);
 
     return Container(
       decoration: ErpDecorations.card,

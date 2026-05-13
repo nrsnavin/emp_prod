@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 class WastageController extends GetxController {
@@ -32,12 +33,10 @@ class WastageController extends GetxController {
         '/wastage/get-by-employee',
         queryParameters: {'id': _empId},
       );
-      final list = (res.data['wastage'] as List? ?? [])
-          .map((e) => (e as Map).cast<String, dynamic>())
-          .toList();
-      items.assignAll(list);
+      items.assignAll(
+          SafeJson.asMapList(SafeJson.asMap(res.data)['wastage']));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load wastage records';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -48,7 +47,7 @@ class WastageController extends GetxController {
 
   // ── Aggregates for the summary card ────────────────────────
   double get totalQuantity =>
-      items.fold(0.0, (s, w) => s + ((w['quantity'] as num?)?.toDouble() ?? 0));
+      items.fold(0.0, (s, w) => s + SafeJson.asDouble(w['quantity']));
   double get totalPenalty =>
-      items.fold(0.0, (s, w) => s + ((w['penalty']  as num?)?.toDouble() ?? 0));
+      items.fold(0.0, (s, w) => s + SafeJson.asDouble(w['penalty']));
 }

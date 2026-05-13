@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/leave_controller.dart';
 
@@ -138,16 +139,13 @@ class _LeaveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = l['date']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final shift     = l['shift']?.toString() ?? '—';
-    final leaveType = l['leaveType']?.toString() ?? '—';
-    final reason    = l['reason']?.toString() ?? '';
-    final status    = (l['status']?.toString() ?? 'pending').toLowerCase();
-    final notes     = l['reviewNotes']?.toString() ?? '';
+    final dt = SafeJson.asLocalDateTime(l['date']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final shift     = SafeJson.asString(l['shift'], '—');
+    final leaveType = SafeJson.asString(l['leaveType'], '—');
+    final reason    = SafeJson.asString(l['reason']);
+    final status    = SafeJson.asString(l['status'], 'pending').toLowerCase();
+    final notes     = SafeJson.asString(l['reviewNotes']);
 
     Color statusColor;
     switch (status) {
@@ -225,7 +223,8 @@ class _LeaveCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: OutlinedButton.icon(
-                onPressed: () => onCancel!(l['id']?.toString() ?? ''),
+                onPressed: () =>
+                    onCancel!(SafeJson.asString(l['id'] ?? l['_id'])),
                 icon: const Icon(Icons.close_rounded,
                     size: 14, color: ErpColors.errorRed),
                 label: const Text('Cancel',
@@ -313,7 +312,9 @@ class _RequestSheetState extends State<_RequestSheet> {
                 firstDate: today,
                 lastDate: DateTime(today.year + 1, 12, 31),
               );
-              if (picked != null) setState(() => _date = picked);
+              if (picked != null && mounted) {
+                setState(() => _date = picked);
+              }
             },
             child: InputDecorator(
               decoration: ErpDecorations.formInput(

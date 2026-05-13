@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 import '../controllers/profile_controller.dart';
@@ -40,9 +41,7 @@ class ProfilePage extends StatelessWidget {
               const SizedBox(height: 14),
               _ContactCard(profile: p),
               const SizedBox(height: 14),
-              _RecentShiftsCard(shifts:
-                  (p['result'] as List?)?.cast<Map<String, dynamic>>() ??
-                      const []),
+              _RecentShiftsCard(shifts: SafeJson.asMapList(p['result'])),
             ],
           ),
         );
@@ -58,9 +57,9 @@ class _IdentityCard extends StatelessWidget {
   const _IdentityCard({required this.profile, required this.email});
   @override
   Widget build(BuildContext context) {
-    final name = profile['name']?.toString() ?? '—';
-    final dept = profile['department']?.toString() ?? '—';
-    final role = profile['role']?.toString() ?? '—';
+    final name = SafeJson.asString(profile['name'], '—');
+    final dept = SafeJson.asString(profile['department'], '—');
+    final role = SafeJson.asString(profile['role'], '—');
     return Container(
       decoration: BoxDecoration(
         color: ErpColors.navyDark,
@@ -114,9 +113,9 @@ class _StatsCard extends StatelessWidget {
   const _StatsCard({required this.profile});
   @override
   Widget build(BuildContext context) {
-    final skill       = (profile['skill']       as num?)?.toInt()    ?? 0;
-    final performance = (profile['performance'] as num?)?.toInt()    ?? 0;
-    final totalShifts = (profile['totalShifts'] as num?)?.toInt()    ?? 0;
+    final skill       = SafeJson.asInt(profile['skill']);
+    final performance = SafeJson.asInt(profile['performance']);
+    final totalShifts = SafeJson.asInt(profile['totalShifts']);
     return ErpSectionCard(
       title: 'PERFORMANCE',
       icon: Icons.insights_outlined,
@@ -176,9 +175,9 @@ class _ContactCard extends StatelessWidget {
       icon: Icons.contact_phone_outlined,
       child: Column(children: [
         _kv(Icons.phone_outlined, 'Phone',
-            profile['phoneNumber']?.toString() ?? '—'),
+            SafeJson.asString(profile['phoneNumber'], '—')),
         _kv(Icons.badge_outlined, 'Aadhaar',
-            profile['aadhar']?.toString() ?? 'Not Provided'),
+            SafeJson.asString(profile['aadhar'], 'Not Provided')),
       ]),
     );
   }
@@ -226,15 +225,12 @@ class _RecentShiftsCard extends StatelessWidget {
       icon: Icons.history_outlined,
       child: Column(
         children: shifts.take(10).map((s) {
-          String when = '—';
-          final raw = s['date']?.toString();
-          if (raw != null) {
-            try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-          }
-          final shiftLabel = s['shift']?.toString() ?? '—';
-          final machine    = s['machine']?.toString() ?? '—';
-          final output     = (s['outputMeters'] as num?)?.toInt() ?? 0;
-          final efficiency = (s['efficiency']   as num?)?.toDouble() ?? 0;
+          final dt = SafeJson.asLocalDateTime(s['date']);
+          final when = dt == null ? '—' : fmt.format(dt);
+          final shiftLabel = SafeJson.asString(s['shift'], '—');
+          final machine    = SafeJson.asString(s['machine'], '—');
+          final output     = SafeJson.asInt(s['outputMeters']);
+          final efficiency = SafeJson.asDouble(s['efficiency']);
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(children: [

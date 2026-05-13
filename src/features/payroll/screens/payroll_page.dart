@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/payroll_controller.dart';
 
@@ -95,10 +96,10 @@ class _SlipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = (slip['status']?.toString() ?? 'draft').toLowerCase();
-    final gross  = (slip['grossPay']  as num?)?.toDouble() ?? 0;
-    final net    = (slip['netPay']    as num?)?.toDouble() ?? 0;
-    final deduct = (slip['totalDeductions'] as num?)?.toDouble() ?? 0;
+    final status = SafeJson.asString(slip['status'], 'draft').toLowerCase();
+    final gross  = SafeJson.asDouble(slip['grossPay']);
+    final net    = SafeJson.asDouble(slip['netPay']);
+    final deduct = SafeJson.asDouble(slip['totalDeductions']);
 
     return Container(
       decoration: BoxDecoration(
@@ -433,14 +434,11 @@ class _AdvanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fmt = DateFormat('dd MMM yyyy');
-    final raw = adv['createdAt']?.toString();
-    String when = '—';
-    if (raw != null) {
-      try { when = fmt.format(DateTime.parse(raw).toLocal()); } catch (_) {}
-    }
-    final amount = (adv['amount'] as num?)?.toDouble() ?? 0;
-    final status = (adv['status']?.toString() ?? 'pending').toLowerCase();
-    final reason = adv['reason']?.toString() ?? '';
+    final dt = SafeJson.asLocalDateTime(adv['createdAt']);
+    final when = dt == null ? '—' : fmt.format(dt);
+    final amount = SafeJson.asDouble(adv['amount']);
+    final status = SafeJson.asString(adv['status'], 'pending').toLowerCase();
+    final reason = SafeJson.asString(adv['reason']);
 
     Color statusColor;
     switch (status) {

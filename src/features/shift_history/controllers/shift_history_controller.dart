@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads two shift lists for the logged-in employee — currently
@@ -39,7 +40,7 @@ class ShiftHistoryController extends GetxController {
       openShifts.assignAll(_parse(results[0].data, 'shifts'));
       closedShifts.assignAll(_parse(results[1].data, 'shifts'));
     } on DioException catch (e) {
-      errorMsg.value = e.response?.data?['message']?.toString() ??
+      errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load shift history';
     } catch (e) {
       errorMsg.value = e.toString();
@@ -48,8 +49,6 @@ class ShiftHistoryController extends GetxController {
     }
   }
 
-  List<Map<String, dynamic>> _parse(dynamic body, String key) {
-    final list = (body is Map ? body[key] : null) as List? ?? const [];
-    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
-  }
+  List<Map<String, dynamic>> _parse(dynamic body, String key) =>
+      SafeJson.asMapList(SafeJson.asMap(body)[key]);
 }
