@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../theme/erp_theme.dart';
 import '../controllers/active_job_controller.dart';
+import 'elastic_detail_sheet.dart';
 
 class ActiveJobPage extends StatelessWidget {
   const ActiveJobPage({super.key});
@@ -283,51 +284,72 @@ class _ElasticsCard extends StatelessWidget {
                   style: TextStyle(
                       color: ErpColors.textSecondary, fontSize: 12)),
             )
-          else
+          else ...[
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text(
+                  'Tap any row to see the full spec in plain English.',
+                  style: TextStyle(
+                      color: ErpColors.textMuted,
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic)),
+            ),
             ...heads.map((h) {
               final headNo = (h['head'] as num?)?.toInt() ?? 0;
               final e      = (h['elastic'] as Map?)?.cast<String, dynamic>();
               final name   = e?['name']?.toString() ?? '—';
               final weave  = e?['weaveType']?.toString() ?? '';
               final weight = (e?['weight'] as num?)?.toString() ?? '';
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(children: [
-                  Container(
-                    width: 30, height: 24,
-                    decoration: BoxDecoration(
-                      color: ErpColors.accentBlue.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(4),
+              return InkWell(
+                onTap: e == null
+                    ? null
+                    : () => ElasticDetailSheet.show(context,
+                        elastic: e, headNo: headNo),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 6, horizontal: 4),
+                  child: Row(children: [
+                    Container(
+                      width: 30, height: 24,
+                      decoration: BoxDecoration(
+                        color: ErpColors.accentBlue.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text('H$headNo',
+                          style: const TextStyle(
+                              color: ErpColors.accentBlue,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800)),
                     ),
-                    alignment: Alignment.center,
-                    child: Text('H$headNo',
-                        style: const TextStyle(
-                            color: ErpColors.accentBlue,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(name,
-                        style: const TextStyle(
-                            color: ErpColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                  if (weave.isNotEmpty)
-                    Text('W$weave',
-                        style: const TextStyle(
-                            color: ErpColors.textMuted, fontSize: 11)),
-                  if (weight.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(name,
+                          style: const TextStyle(
+                              color: ErpColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (weave.isNotEmpty)
+                      Text('W$weave',
+                          style: const TextStyle(
+                              color: ErpColors.textMuted, fontSize: 11)),
+                    if (weight.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Text('${weight}g',
+                          style: const TextStyle(
+                              color: ErpColors.textMuted, fontSize: 11)),
+                    ],
                     const SizedBox(width: 6),
-                    Text('${weight}g',
-                        style: const TextStyle(
-                            color: ErpColors.textMuted, fontSize: 11)),
-                  ],
-                ]),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 18, color: ErpColors.textMuted),
+                  ]),
+                ),
               );
             }).toList(),
+          ],
           if (orderElastics.isNotEmpty) ...[
             const Divider(height: 16, color: ErpColors.borderLight),
             const Text('Order requirements',
@@ -337,23 +359,33 @@ class _ElasticsCard extends StatelessWidget {
               final e   = (o['elastic'] as Map?)?.cast<String, dynamic>();
               final qty = (o['quantity'] as num?)?.toInt() ?? 0;
               final name = e?['name']?.toString() ?? '—';
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(children: [
-                  const Icon(Icons.fiber_manual_record,
-                      size: 8, color: ErpColors.textMuted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(name,
+              return InkWell(
+                onTap: e == null
+                    ? null
+                    : () => ElasticDetailSheet.show(context, elastic: e),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 6, horizontal: 4),
+                  child: Row(children: [
+                    const Icon(Icons.fiber_manual_record,
+                        size: 8, color: ErpColors.textMuted),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(name,
+                          style: const TextStyle(
+                              color: ErpColors.textPrimary, fontSize: 12)),
+                    ),
+                    Text('$qty m',
                         style: const TextStyle(
-                            color: ErpColors.textPrimary, fontSize: 12)),
-                  ),
-                  Text('$qty m',
-                      style: const TextStyle(
-                          color: ErpColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800)),
-                ]),
+                            color: ErpColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 16, color: ErpColors.textMuted),
+                  ]),
+                ),
               );
             }).toList(),
           ],
