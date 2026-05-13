@@ -168,6 +168,53 @@ class ErpDecorations {
   );
 }
 
+// ══════════════════════════════════════════════════════════════
+//  Light + dark ThemeData factories — `GetMaterialApp` picks
+//  between them based on `themeMode` (set by AppSettingsController).
+//  Dark mode just inverts surface/text + uses navyMid as the
+//  scaffold background. The brand accent stays the same so the
+//  product still feels like one app across themes.
+// ══════════════════════════════════════════════════════════════
+class ErpTheme {
+  ErpTheme._();
+
+  static ThemeData light() => ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: ErpColors.bgBase,
+        primaryColor: ErpColors.accentBlue,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: ErpColors.navyDark,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: ErpColors.accentBlue,
+          primary:   ErpColors.accentBlue,
+          secondary: ErpColors.accentLight,
+        ),
+        useMaterial3: true,
+      );
+
+  static ThemeData dark() => ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B1422),
+        primaryColor: ErpColors.accentBlue,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: ErpColors.navyDark,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        cardColor: ErpColors.navyMid,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: ErpColors.accentBlue,
+          brightness: Brightness.dark,
+          primary:   ErpColors.accentLight,
+          secondary: ErpColors.accentBlue,
+        ),
+        useMaterial3: true,
+      );
+}
+
 /// Reusable section card mirroring the admin app's `ErpSectionCard`.
 class ErpSectionCard extends StatelessWidget {
   final String title;

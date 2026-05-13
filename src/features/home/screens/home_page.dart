@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../theme/erp_theme.dart';
+import '../../active_job/screens/active_job_page.dart';
 import '../../attendance/screens/attendance_page.dart';
 import '../../auth/controllers/login_controller.dart';
 import '../../bonus/screens/bonus_page.dart';
+import '../../feedback/screens/feedback_page.dart';
 import '../../leave/screens/leave_page.dart';
+import '../../machine_issue/screens/machine_issue_page.dart';
+import '../../notice_board/screens/notice_board_page.dart';
 import '../../payroll/screens/payroll_page.dart';
+import '../../profile/screens/profile_page.dart';
+import '../../settings/screens/settings_page.dart';
 import '../../shift_history/screens/shift_history_page.dart';
 import '../../shift_production/screens/shift_production_page.dart';
 import '../../wastage/screens/wastage_page.dart';
@@ -73,6 +79,12 @@ class HomePage extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      icon: const Icon(Icons.settings_outlined,
+                          color: Colors.white, size: 20),
+                      onPressed: () => Get.to(() => const SettingsPage()),
                     ),
                     IconButton(
                       tooltip: 'Sign out',
@@ -180,6 +192,46 @@ class HomePage extends StatelessWidget {
                       color:    ErpColors.warningAmber,
                       enabled:  u.hasEmployeeLink,
                       onTap:    () => Get.to(() => const BonusPage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Current\nJob',
+                      subtitle: 'Machine & elastics',
+                      icon:     Icons.assignment_turned_in_outlined,
+                      color:    const Color(0xFF14B8A6),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const ActiveJobPage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Machine\nIssues',
+                      subtitle: 'Report breakdown',
+                      icon:     Icons.build_circle_outlined,
+                      color:    const Color(0xFFEA580C),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const MachineIssuePage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Notice\nBoard',
+                      subtitle: 'Announcements',
+                      icon:     Icons.campaign_outlined,
+                      color:    const Color(0xFF6366F1),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const NoticeBoardPage()),
+                    ),
+                    _FeatureCard(
+                      title:    'Feedback',
+                      subtitle: 'Complaints & ideas',
+                      icon:     Icons.forum_outlined,
+                      color:    const Color(0xFFDB2777),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const FeedbackPage()),
+                    ),
+                    _FeatureCard(
+                      title:    'My\nProfile',
+                      subtitle: 'Personal & shifts',
+                      icon:     Icons.person_outline,
+                      color:    const Color(0xFF475569),
+                      enabled:  u.hasEmployeeLink,
+                      onTap:    () => Get.to(() => const ProfilePage()),
                     ),
                   ],
                 ),
