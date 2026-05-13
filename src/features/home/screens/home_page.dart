@@ -200,13 +200,13 @@ class HomePage extends StatelessWidget {
                           _open('Yearly Bonus', const BonusPage()),
                     ),
                     _FeatureCard(
-                      title:    'Current\nJob',
-                      subtitle: 'Machine & elastics',
+                      title:    'Current\nJobs',
+                      subtitle: 'All active machines',
                       icon:     Icons.assignment_turned_in_outlined,
                       color:    const Color(0xFF14B8A6),
                       enabled:  u.hasEmployeeLink,
                       onTap: () =>
-                          _open('Current Job', const ActiveJobPage()),
+                          _open('Current Jobs', const ActiveJobPage()),
                     ),
                     _FeatureCard(
                       title:    'Machine\nIssues',

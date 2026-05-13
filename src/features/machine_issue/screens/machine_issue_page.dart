@@ -220,6 +220,20 @@ class _ReportSheetState extends State<_ReportSheet> {
   final _descCtrl  = TextEditingController();
   String _severity = 'medium';
 
+  /// Which active machine the worker is reporting against. Defaults
+  /// to the first one in the list; the worker can switch if they
+  /// have multiple machines open.
+  String? _machineId;
+
+  @override
+  void initState() {
+    super.initState();
+    final list = widget.c.activeMachines;
+    if (list.isNotEmpty) {
+      _machineId = SafeJson.asString(list.first['_id']);
+    }
+  }
+
   @override
   void dispose() {
     _titleCtrl.dispose();
@@ -236,111 +250,145 @@ class _ReportSheetState extends State<_ReportSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 22),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                color: ErpColors.borderMid,
-                borderRadius: BorderRadius.circular(2),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: ErpColors.borderMid,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 14),
-          const Text('Report Machine Issue',
-              style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: ErpColors.textPrimary)),
-          const SizedBox(height: 4),
-          Obx(() {
-            final m = c.activeMachineLabel.value;
-            if (m.isEmpty) {
-              return const Text(
-                'No active machine detected. You can still report — '
-                'open a shift first for an automatic machine link.',
+            const SizedBox(height: 14),
+            const Text('Report Machine Issue',
                 style: TextStyle(
-                    color: ErpColors.warningAmber, fontSize: 11),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: ErpColors.textPrimary)),
+            const SizedBox(height: 10),
+
+            // ── Machine picker ──────────────────────────────────
+            Obx(() {
+              final machines = c.activeMachines;
+              if (machines.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'No active machine detected. Open a shift on the '
+                    'machine first, then report the issue.',
+                    style: TextStyle(
+                        color: ErpColors.warningAmber, fontSize: 11),
+                  ),
+                );
+              }
+              if (machines.length == 1) {
+                final only = machines.first;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                      'Machine: M-${SafeJson.asString(only['ID'])}',
+                      style: const TextStyle(
+                          color: ErpColors.textSecondary, fontSize: 12)),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: DropdownButtonFormField<String>(
+                  value: _machineId,
+                  decoration: ErpDecorations.formInput('Machine *'),
+                  items: machines.map((m) {
+                    final id    = SafeJson.asString(m['_id']);
+                    final label = SafeJson.asString(m['ID'], '?');
+                    final run   = SafeJson.asMapOrNull(m['orderRunning']);
+                    final jobNo = SafeJson.asString(run?['jobOrderNo']);
+                    return DropdownMenuItem(
+                      value: id,
+                      child: Text(
+                          'M-$label${jobNo.isEmpty ? "" : "  ·  Job #$jobNo"}',
+                          overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
+                  onChanged: (v) => setState(() => _machineId = v),
+                ),
               );
-            }
-            return Text('Machine: M-$m',
-                style: const TextStyle(
-                    color: ErpColors.textSecondary, fontSize: 12));
-          }),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _titleCtrl,
-            decoration: ErpDecorations.formInput(
-              'Title *',
-              hint: 'e.g. Head 3 thread broken',
+            }),
+
+            // ── Title ───────────────────────────────────────────
+            TextField(
+              controller: _titleCtrl,
+              decoration: ErpDecorations.formInput(
+                'Title *',
+                hint: 'e.g. Head 3 thread broken',
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            value: _severity,
-            decoration: ErpDecorations.formInput('Severity *'),
-            items: const [
-              DropdownMenuItem(value: 'low',      child: Text('Low')),
-              DropdownMenuItem(value: 'medium',   child: Text('Medium')),
-              DropdownMenuItem(value: 'high',     child: Text('High')),
-              DropdownMenuItem(value: 'critical', child: Text('Critical')),
-            ],
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: _severity,
+              decoration: ErpDecorations.formInput('Severity *'),
+              items: const [
+                DropdownMenuItem(value: 'low',      child: Text('Low')),
+                DropdownMenuItem(value: 'medium',   child: Text('Medium')),
+                DropdownMenuItem(value: 'high',     child: Text('High')),
+                DropdownMenuItem(value: 'critical', child: Text('Critical')),
+              ],
             onChanged: (v) => setState(() => _severity = v ?? 'medium'),
           ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _descCtrl,
-            maxLines: 4,
-            decoration: ErpDecorations.formInput(
-              'Description *',
-              hint: 'What exactly is wrong / when did it start?',
+            const SizedBox(height: 10),
+            TextField(
+              controller: _descCtrl,
+              maxLines: 4,
+              decoration: ErpDecorations.formInput(
+                'Description *',
+                hint: 'What exactly is wrong / when did it start?',
+              ),
             ),
-          ),
-          const SizedBox(height: 18),
-          Obx(() => SizedBox(
-                height: 44,
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ErpColors.errorRed,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
+            const SizedBox(height: 18),
+            Obx(() => SizedBox(
+                  height: 44,
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ErpColors.errorRed,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: c.isSubmitting.value
+                        ? null
+                        : () async {
+                            final ok = await c.submit(
+                              machineId: _machineId ?? '',
+                              title: _titleCtrl.text,
+                              description: _descCtrl.text,
+                              severity: _severity,
+                            );
+                            if (ok && Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                    icon: c.isSubmitting.value
+                        ? const SizedBox(
+                            width: 16, height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 18),
+                    label: Text(
+                      c.isSubmitting.value ? 'Sending…' : 'Report Issue',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14),
+                    ),
                   ),
-                  onPressed: c.isSubmitting.value
-                      ? null
-                      : () async {
-                          final mid = c.activeMachineId.value ?? '';
-                          final ok = await c.submit(
-                            machineId: mid,
-                            title: _titleCtrl.text,
-                            description: _descCtrl.text,
-                            severity: _severity,
-                          );
-                          if (ok && Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                  icon: c.isSubmitting.value
-                      ? const SizedBox(
-                          width: 16, height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.send_rounded,
-                          color: Colors.white, size: 18),
-                  label: Text(
-                    c.isSubmitting.value ? 'Sending…' : 'Report Issue',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14),
-                  ),
-                ),
-              )),
-        ],
+                )),
+          ],
+        ),
       ),
     );
   }
