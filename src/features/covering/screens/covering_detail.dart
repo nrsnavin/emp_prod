@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/covering_detail_controller.dart';
 import '../models/covering.dart';
+import '_wt_helper.dart';
 
 // ═════════════════════════════════════════════════════════════
 //  COVERING DETAIL PAGE — worker view.
@@ -211,7 +212,7 @@ class _HeroCard extends StatelessWidget {
                 '${data.elasticPlanned.length}'),
             Container(width: 1, height: 32, color: ErpColors.borderLight),
             _Stat(Icons.scale_outlined, 'PRODUCED',
-                '${_wt(data.producedWeight)} kg'),
+                '${wt(data.producedWeight)} kg'),
           ]),
         ),
       ]),
@@ -533,7 +534,7 @@ class _BeamSection extends StatelessWidget {
                       border: Border.all(
                           color: ErpColors.successGreen.withOpacity(0.35)),
                     ),
-                    child: Text('${_wt(data.producedWeight)} kg',
+                    child: Text('${wt(data.producedWeight)} kg',
                         style: const TextStyle(
                             color: ErpColors.successGreen,
                             fontSize: 10,
@@ -762,7 +763,7 @@ class _BeamEntryRow extends StatelessWidget {
                   const Icon(Icons.scale_outlined,
                       size: 12, color: ErpColors.textMuted),
                   const SizedBox(width: 4),
-                  Text('${_wt(entry.weight)} kg',
+                  Text('${wt(entry.weight)} kg',
                       style: const TextStyle(
                           color: ErpColors.textPrimary,
                           fontSize: 13,
@@ -800,12 +801,6 @@ class _BeamEntryRow extends StatelessWidget {
       ]),
     );
   }
-}
-
-String _wt(double v) {
-  if (v == v.truncateToDouble()) return v.toInt().toString();
-  final s = v.toStringAsFixed(3);
-  return s.replaceAll(RegExp(r'0+\$'), '').replaceAll(RegExp(r'\.\$'), '');
 }
 
 class _ErrorState extends StatelessWidget {
