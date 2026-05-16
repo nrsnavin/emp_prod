@@ -1,37 +1,50 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/safe_json.dart';
-import '../../auth/controllers/storage_keys.dart';
 
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  PACKING ENTRY CONTROLLER (worker)
 //
 //  GET  /packing/jobs-packing                    → active packing-ready jobs
-//  GET  /packing/employees-by-department/:dept   → dept teammates
-//  POST /packing/create-packing                  → submit a packing batch
-// ═════════════════════════════════════════════════════════════
+//  GET  /packing/employees-by-department/checking→ checker dropdown
+//  GET  /packing/employees-by-department/packing → packer dropdown
+//  POST /packing/create-packing                  → submit a packing record
+//
+//  Field names match the backend contract — see api/packing.js
+//  POST handler. Required: job, elastic, meter, netWeight, tareWeight,
+//  grossWeight, checkedBy, packedBy. Optional: joints, stretch, size.
+// ══════════════════════════════════════════════════════════════
 class PackingEntryController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
-  // ── Jobs list state ─────────────────────────────────────────────
+  // ── Jobs list state ───────────────────────────────────
   final jobs       = <Map<String, dynamic>>[].obs;
   final isLoading  = true.obs;
   final errorMsg   = Rxn<String>();
 
-  // ── Employee dropdown state ──────────────────────────────────────
-  final employees  = <Map<String, dynamic>>[].obs;
-  final isEmpLoading = false.obs;
+  // ── Employee dropdowns ───────────────────────────────
+  // Checker comes from the `checking` dept; packer from `packing` dept.
+  final checkingEmployees = <Map<String, dynamic>>[].obs;
+  final packingEmployees  = <Map<String, dynamic>>[].obs;
+  final isEmpLoading      = false.obs;
 
-  // ── Form state ──────────────────────────────────────────────────────
+  // ── Form state ────────────────────────────────────────
+  final selectedElasticId   = Rxn<String>();
+  final selectedCheckedById = Rxn<String>();
+  final selectedPackedById  = Rxn<String>();
+
+  final meterCtrl   = TextEditingController();
+  final jointsCtrl  = TextEditingController();
+  final stretchCtrl = TextEditingController();
+  final sizeCtrl    = TextEditingController();
+  final tareCtrl    = TextEditingController();
+  final netCtrl     = TextEditingController();
+  final grossCtrl   = TextEditingController();
+
   final isSubmitting = false.obs;
-  final qtyCtrl     = TextEditingController();
-  final weightCtrl  = TextEditingController();
-  final notesCtrl   = TextEditingController();
-  final selectedEmployeeId = Rxn<String>();
 
   @override
   void onInit() {
@@ -41,20 +54,36 @@ class PackingEntryController extends GetxController {
 
   @override
   void onClose() {
-    qtyCtrl.dispose();
-    weightCtrl.dispose();
-    notesCtrl.dispose();
+    meterCtrl.dispose();
+    jointsCtrl.dispose();
+    stretchCtrl.dispose();
+    sizeCtrl.dispose();
+    tareCtrl.dispose();
+    netCtrl.dispose();
+    grossCtrl.dispose();
     super.onClose();
   }
 
-  // ── Jobs ─────────────────────────────────────────────────────────────
+  void _clearForm() {
+    meterCtrl.clear();
+    jointsCtrl.clear();
+    stretchCtrl.clear();
+    sizeCtrl.clear();
+    tareCtrl.clear();
+    netCtrl.clear();
+    grossCtrl.clear();
+    selectedElasticId.value   = null;
+    selectedCheckedById.value = null;
+    selectedPackedById.value  = null;
+  }
+
+  // ── Jobs ────────────────────────────────────────────────
   Future<void> fetchJobs() async {
     isLoading.value = true;
     errorMsg.value  = null;
     try {
       final res  = await _dio.get('/packing/jobs-packing');
       final body = SafeJson.asMap(res.data);
-      // Endpoint may shape response as { jobs: [...] } or as raw list.
       final raw  = body['jobs'] is List
           ? SafeJson.asMapList(body['jobs'])
           : (res.data is List
@@ -71,80 +100,104 @@ class PackingEntryController extends GetxController {
     }
   }
 
-  // ── Employees by dept (cached after first call) ──────────────────
-  Future<void> loadEmployees({String dept = 'packing'}) async {
-    if (employees.isNotEmpty) return;
+  // ── Employees ──────────────────────────────────────────
+  // Two dept lookups in parallel — checker + packer dropdowns.
+  // Cached after first load.
+  Future<void> loadEmployees() async {
+    if (checkingEmployees.isNotEmpty && packingEmployees.isNotEmpty) return;
     isEmpLoading.value = true;
     try {
-      final res  = await _dio.get('/packing/employees-by-department/$dept');
-      final body = SafeJson.asMap(res.data);
-      final raw  = body['employees'] is List
-          ? SafeJson.asMapList(body['employees'])
-          : (res.data is List
-              ? SafeJson.asMapList(res.data)
-              : SafeJson.asMapList(body['data']));
-      employees.assignAll(raw);
+      final results = await Future.wait([
+        _dio.get('/packing/employees-by-department/checking'),
+        _dio.get('/packing/employees-by-department/packing'),
+      ]);
+      checkingEmployees.assignAll(_parseEmployees(results[0].data));
+      packingEmployees.assignAll(_parseEmployees(results[1].data));
     } on DioException catch (e) {
-      Get.snackbar(
+      _snack(
         'Error',
         SafeJson.apiErrorMessage(e.response?.data) ??
             'Failed to load teammates',
-        backgroundColor: const Color(0xFFDC2626),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+        isError: true,
       );
     } finally {
       isEmpLoading.value = false;
     }
   }
 
-  // ── Resolve logged-in employeeId for the form ───────────────────
-  Future<String?> _myEmployeeId() async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = prefs.getString(StorageKeys.employeeId);
-    return (id != null && id.isNotEmpty) ? id : null;
+  List<Map<String, dynamic>> _parseEmployees(dynamic data) {
+    final body = SafeJson.asMap(data);
+    if (body['employees'] is List) return SafeJson.asMapList(body['employees']);
+    if (data is List)              return SafeJson.asMapList(data);
+    if (body['data'] is List)      return SafeJson.asMapList(body['data']);
+    return const [];
   }
 
-  // ── Submit packing batch ────────────────────────────────────────────
+  // ── Submit ──────────────────────────────────────────────
   Future<bool> submit({required String jobId}) async {
-    final qty   = int.tryParse(qtyCtrl.text.trim());
-    final wt    = double.tryParse(weightCtrl.text.trim());
-    final notes = notesCtrl.text.trim();
+    final meter   = double.tryParse(meterCtrl.text.trim());
+    final joints  = int.tryParse(jointsCtrl.text.trim());
+    final stretch = stretchCtrl.text.trim();
+    final size    = sizeCtrl.text.trim();
+    final tare    = double.tryParse(tareCtrl.text.trim());
+    final net     = double.tryParse(netCtrl.text.trim());
+    final gross   = double.tryParse(grossCtrl.text.trim());
 
     if (jobId.isEmpty) {
       _snack('Validation', 'No job selected', isError: true);
       return false;
     }
-    if (qty == null || qty < 1) {
-      _snack('Validation', 'Enter a valid quantity', isError: true);
+    if (selectedElasticId.value == null) {
+      _snack('Validation', 'Pick the elastic packed', isError: true);
       return false;
     }
-    if (wt == null || wt <= 0) {
-      _snack('Validation', 'Enter a valid weight (kg)', isError: true);
+    if (meter == null || meter <= 0) {
+      _snack('Validation', 'Enter a valid meter value', isError: true);
       return false;
     }
-
-    final myEmpId = await _myEmployeeId();
-    final teammateId = selectedEmployeeId.value;
+    if (net == null || net <= 0) {
+      _snack('Validation', 'Enter the net weight (kg)', isError: true);
+      return false;
+    }
+    if (tare == null || tare < 0) {
+      _snack('Validation', 'Enter the tare weight (kg)', isError: true);
+      return false;
+    }
+    if (gross == null || gross <= 0) {
+      _snack('Validation', 'Enter the gross weight (kg)', isError: true);
+      return false;
+    }
+    if (selectedCheckedById.value == null) {
+      _snack('Validation', 'Pick the checker', isError: true);
+      return false;
+    }
+    if (selectedPackedById.value == null) {
+      _snack('Validation', 'Pick the packer', isError: true);
+      return false;
+    }
 
     isSubmitting.value = true;
     try {
       await _dio.post('/packing/create-packing', data: {
-        'job':      jobId,
-        'quantity': qty,
-        'weight':   wt,
-        if (notes.isNotEmpty) 'notes': notes,
-        if (myEmpId != null) 'enteredBy': myEmpId,
-        if (teammateId != null && teammateId.isNotEmpty)
-          'teammate': teammateId,
+        'job':         jobId,
+        'elastic':     selectedElasticId.value,
+        'meter':       meter,
+        'joints':      joints ?? 0,
+        'tareWeight':  tare,
+        'netWeight':   net,
+        'grossWeight': gross,
+        if (stretch.isNotEmpty) 'stretch': stretch,
+        if (size.isNotEmpty)    'size':    size,
+        'checkedBy':   selectedCheckedById.value,
+        'packedBy':    selectedPackedById.value,
       });
-      qtyCtrl.clear();
-      weightCtrl.clear();
-      notesCtrl.clear();
-      selectedEmployeeId.value = null;
-      _snack('Packing Saved',
-          'Recorded $qty pcs (${wt.toStringAsFixed(2)} kg)',
-          isError: false);
+      _clearForm();
+      _snack(
+        'Packing Saved',
+        'Recorded ${meter.toStringAsFixed(meter.truncateToDouble() == meter ? 0 : 2)} m '
+        '(${net.toStringAsFixed(2)} kg net)',
+        isError: false,
+      );
       await fetchJobs();
       return true;
     } on DioException catch (e) {
