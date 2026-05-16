@@ -25,8 +25,19 @@ import '../../wastage/screens/wastage_page.dart';
 ///
 /// Header: navy hero showing employee name + department + linked-id
 /// banner if the User has no Employee link.
-/// Body : optional dept-specific "MY WORK" strip, then the full
-///        "EVERYONE" feature grid every worker can use.
+/// Body : dept-specific MY WORK strip + EVERYONE strip.
+///
+/// MY WORK tiles per department (work-related actions only):
+///   weaving  → Enter Shift Production, Shift History, Machine Issue
+///   warping  → Warping Jobs
+///   covering → Covering Jobs (beam-entry enabled)
+///   checking → Wastage Entry
+///   packing  → Packing Entry
+///   other    → (no MY WORK strip)
+///
+/// EVERYONE tiles (HR / comms shared by all):
+///   Attendance, Leave, Wastage Report (read-only), Payroll, Yearly
+///   Bonus, Current Jobs, Notice Board, Feedback, My Profile.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -40,7 +51,7 @@ class HomePage extends StatelessWidget {
           final u = c.user.value;
           final dept = (u.department ?? '').toLowerCase().trim();
           return Column(children: [
-            // ── Hero header ────────────────────────────────────
+            // ── Hero header ──────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
@@ -134,7 +145,7 @@ class HomePage extends StatelessWidget {
               ),
             ),
 
-            // ── Body: MY WORK (optional) + EVERYONE ────────────
+            // ── Body: MY WORK (optional) + EVERYONE ──────────
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
@@ -163,26 +174,12 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // ── EVERYONE tiles ───────────────────────────────────────────
+  // ── EVERYONE tiles ────────────────────────────────────
+  //
+  // Enter Shift Production, Shift History and Machine Issue are no
+  // longer here — they moved to MY WORK for weaving operators only.
+  // The rest are HR / comms shared by every employee.
   List<Widget> _everyoneTiles({required bool enabled}) => [
-        _FeatureCard(
-          title:    'Enter Shift\nProduction',
-          subtitle: 'Close an open shift',
-          icon:     Icons.precision_manufacturing_outlined,
-          color:    ErpColors.accentBlue,
-          enabled:  enabled,
-          onTap: () => _open('Shift Production',
-              const ShiftProductionPage()),
-        ),
-        _FeatureCard(
-          title:    'Shift\nHistory',
-          subtitle: 'Open & closed shifts',
-          icon:     Icons.calendar_view_day_outlined,
-          color:    const Color(0xFF0891B2),
-          enabled:  enabled,
-          onTap: () => _open('Shift History',
-              const ShiftHistoryPage()),
-        ),
         _FeatureCard(
           title:    'Attendance',
           subtitle: 'Monthly calendar',
@@ -235,15 +232,6 @@ class HomePage extends StatelessWidget {
               _open('Current Jobs', const ActiveJobPage()),
         ),
         _FeatureCard(
-          title:    'Machine\nIssues',
-          subtitle: 'Report breakdown',
-          icon:     Icons.build_circle_outlined,
-          color:    const Color(0xFFEA580C),
-          enabled:  enabled,
-          onTap: () =>
-              _open('Machine Issues', const MachineIssuePage()),
-        ),
-        _FeatureCard(
           title:    'Notice\nBoard',
           subtitle: 'Announcements',
           icon:     Icons.campaign_outlined,
@@ -270,12 +258,12 @@ class HomePage extends StatelessWidget {
         ),
       ];
 
-  // ── Dept-specific tiles ──────────────────────────────────────
+  // ── Dept-specific tiles ──────────────────────────────
   //
   // Returned as a flat list of children inserted above the EVERYONE
   // grid (label + grid + spacer). Returns an empty list for
-  // departments that have no specialised flow yet (weaving, dyeing,
-  // blank) so the UX matches the pre-feature behaviour.
+  // departments that have no specialised flow yet (dyeing, blank)
+  // so the UX matches the pre-feature behaviour.
   List<Widget> _buildDepartmentSection({
     required String dept,
     required bool enabled,
@@ -306,10 +294,10 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// ── Department tile factory ─────────────────────────────────────
+// ── Department tile factory ─────────────────────────────────
 //
 // Resolves the worker's department to the tiles that should appear
-// in the "MY WORK" strip. Centralised here so adding a new dept-
+// in the MY WORK strip. Centralised here so adding a new dept-
 // specific module is a one-place change.
 class _DepartmentTiles {
   _DepartmentTiles._();
@@ -320,6 +308,41 @@ class _DepartmentTiles {
     void Function(String, Widget) open,
   ) {
     switch (dept) {
+      // Weaving employees own the loom — they're the ones entering
+      // production, reviewing their shift history, and reporting
+      // machine issues. These tiles used to be in EVERYONE; moved
+      // here so non-weaving operators don't see workflow that doesn't
+      // apply to them.
+      case 'weaving':
+        return [
+          _FeatureCard(
+            title:    'Enter Shift\nProduction',
+            subtitle: 'Close an open shift',
+            icon:     Icons.precision_manufacturing_outlined,
+            color:    ErpColors.accentBlue,
+            enabled:  enabled,
+            onTap: () => open('Shift Production',
+                const ShiftProductionPage()),
+          ),
+          _FeatureCard(
+            title:    'Shift\nHistory',
+            subtitle: 'Open & closed shifts',
+            icon:     Icons.calendar_view_day_outlined,
+            color:    const Color(0xFF0891B2),
+            enabled:  enabled,
+            onTap: () => open('Shift History',
+                const ShiftHistoryPage()),
+          ),
+          _FeatureCard(
+            title:    'Machine\nIssues',
+            subtitle: 'Report breakdown',
+            icon:     Icons.build_circle_outlined,
+            color:    const Color(0xFFEA580C),
+            enabled:  enabled,
+            onTap: () =>
+                open('Machine Issues', const MachineIssuePage()),
+          ),
+        ];
       case 'warping':
         return [
           _FeatureCard(
@@ -330,18 +353,6 @@ class _DepartmentTiles {
             enabled:  enabled,
             onTap: () =>
                 open('Warping Jobs', const WarpingListPage()),
-          ),
-          _FeatureCard(
-            title:    'Covering\nJobs',
-            subtitle: 'View beam entries',
-            icon:     Icons.layers_outlined,
-            color:    const Color(0xFF0891B2),
-            enabled:  enabled,
-            // Warping dept = READ-ONLY view of covering.
-            onTap: () => open(
-              'Covering Jobs',
-              const CoveringListPage(canRecordBeamEntries: false),
-            ),
           ),
         ];
       case 'covering':
@@ -387,7 +398,7 @@ class _DepartmentTiles {
   }
 }
 
-// ── Section label ───────────────────────────────────────────────
+// ── Section label ─────────────────────────────────────────
 class _SectionLabel extends StatelessWidget {
   final String label;
   const _SectionLabel(this.label);
