@@ -7,22 +7,26 @@ import '../../active_job/screens/active_job_page.dart';
 import '../../attendance/screens/attendance_page.dart';
 import '../../auth/controllers/login_controller.dart';
 import '../../bonus/screens/bonus_page.dart';
+import '../../covering/screens/covering_list.dart';
 import '../../feedback/screens/feedback_page.dart';
 import '../../leave/screens/leave_page.dart';
 import '../../machine_issue/screens/machine_issue_page.dart';
 import '../../notice_board/screens/notice_board_page.dart';
+import '../../packing/screens/packing_jobs.dart';
 import '../../payroll/screens/payroll_page.dart';
 import '../../profile/screens/profile_page.dart';
 import '../../settings/screens/settings_page.dart';
 import '../../shift_history/screens/shift_history_page.dart';
 import '../../shift_production/screens/shift_production_page.dart';
+import '../../warping/screens/warping_list.dart';
 import '../../wastage/screens/wastage_page.dart';
 
 /// Dashboard shown after successful login.
 ///
 /// Header: navy hero showing employee name + department + linked-id
 /// banner if the User has no Employee link.
-/// Body : scrollable grid of feature cards.
+/// Body : optional dept-specific "MY WORK" strip, then the full
+///        "EVERYONE" feature grid every worker can use.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -34,6 +38,7 @@ class HomePage extends StatelessWidget {
       body: SafeArea(
         child: Obx(() {
           final u = c.user.value;
+          final dept = (u.department ?? '').toLowerCase().trim();
           return Column(children: [
             // ── Hero header ────────────────────────────────────
             Container(
@@ -129,121 +134,27 @@ class HomePage extends StatelessWidget {
               ),
             ),
 
-            // ── Feature grid ───────────────────────────────────
+            // ── Body: MY WORK (optional) + EVERYONE ────────────
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.05,
-                  children: [
-                    _FeatureCard(
-                      title:    'Enter Shift\nProduction',
-                      subtitle: 'Close an open shift',
-                      icon:     Icons.precision_manufacturing_outlined,
-                      color:    ErpColors.accentBlue,
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Shift Production',
-                          const ShiftProductionPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Shift\nHistory',
-                      subtitle: 'Open & closed shifts',
-                      icon:     Icons.calendar_view_day_outlined,
-                      color:    const Color(0xFF0891B2),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Shift History',
-                          const ShiftHistoryPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Attendance',
-                      subtitle: 'Monthly calendar',
-                      icon:     Icons.calendar_month_outlined,
-                      color:    const Color(0xFF7C3AED),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () =>
-                          _open('Attendance', const AttendancePage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Leave',
-                      subtitle: 'Request & track',
-                      icon:     Icons.event_available_outlined,
-                      color:    const Color(0xFF0EA5E9),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Leave', const LeavePage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Wastage\nReport',
-                      subtitle: 'Last 50 records',
-                      icon:     Icons.delete_sweep_outlined,
-                      color:    ErpColors.errorRed,
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Wastage', const WastagePage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Payroll',
-                      subtitle: 'Slip & advances',
-                      icon:     Icons.receipt_long_outlined,
-                      color:    ErpColors.successGreen,
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Payroll', const PayrollPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Yearly\nBonus',
-                      subtitle: 'View & download',
-                      icon:     Icons.workspace_premium_outlined,
-                      color:    ErpColors.warningAmber,
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () =>
-                          _open('Yearly Bonus', const BonusPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Current\nJobs',
-                      subtitle: 'All active machines',
-                      icon:     Icons.assignment_turned_in_outlined,
-                      color:    const Color(0xFF14B8A6),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () =>
-                          _open('Current Jobs', const ActiveJobPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Machine\nIssues',
-                      subtitle: 'Report breakdown',
-                      icon:     Icons.build_circle_outlined,
-                      color:    const Color(0xFFEA580C),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () =>
-                          _open('Machine Issues', const MachineIssuePage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Notice\nBoard',
-                      subtitle: 'Announcements',
-                      icon:     Icons.campaign_outlined,
-                      color:    const Color(0xFF6366F1),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () =>
-                          _open('Notice Board', const NoticeBoardPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'Feedback',
-                      subtitle: 'Complaints & ideas',
-                      icon:     Icons.forum_outlined,
-                      color:    const Color(0xFFDB2777),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Feedback', const FeedbackPage()),
-                    ),
-                    _FeatureCard(
-                      title:    'My\nProfile',
-                      subtitle: 'Personal & shifts',
-                      icon:     Icons.person_outline,
-                      color:    const Color(0xFF475569),
-                      enabled:  u.hasEmployeeLink,
-                      onTap: () => _open('Profile', const ProfilePage()),
-                    ),
-                  ],
-                ),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                children: [
+                  ..._buildDepartmentSection(
+                    dept: dept,
+                    enabled: u.hasEmployeeLink,
+                  ),
+                  _SectionLabel('EVERYONE'),
+                  const SizedBox(height: 8),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.05,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: _everyoneTiles(enabled: u.hasEmployeeLink),
+                  ),
+                ],
               ),
             ),
           ]);
@@ -252,12 +163,244 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // ── EVERYONE tiles ───────────────────────────────────────────
+  List<Widget> _everyoneTiles({required bool enabled}) => [
+        _FeatureCard(
+          title:    'Enter Shift\nProduction',
+          subtitle: 'Close an open shift',
+          icon:     Icons.precision_manufacturing_outlined,
+          color:    ErpColors.accentBlue,
+          enabled:  enabled,
+          onTap: () => _open('Shift Production',
+              const ShiftProductionPage()),
+        ),
+        _FeatureCard(
+          title:    'Shift\nHistory',
+          subtitle: 'Open & closed shifts',
+          icon:     Icons.calendar_view_day_outlined,
+          color:    const Color(0xFF0891B2),
+          enabled:  enabled,
+          onTap: () => _open('Shift History',
+              const ShiftHistoryPage()),
+        ),
+        _FeatureCard(
+          title:    'Attendance',
+          subtitle: 'Monthly calendar',
+          icon:     Icons.calendar_month_outlined,
+          color:    const Color(0xFF7C3AED),
+          enabled:  enabled,
+          onTap: () =>
+              _open('Attendance', const AttendancePage()),
+        ),
+        _FeatureCard(
+          title:    'Leave',
+          subtitle: 'Request & track',
+          icon:     Icons.event_available_outlined,
+          color:    const Color(0xFF0EA5E9),
+          enabled:  enabled,
+          onTap: () => _open('Leave', const LeavePage()),
+        ),
+        _FeatureCard(
+          title:    'Wastage\nReport',
+          subtitle: 'Last 50 records',
+          icon:     Icons.delete_sweep_outlined,
+          color:    ErpColors.errorRed,
+          enabled:  enabled,
+          onTap: () => _open('Wastage', const WastagePage()),
+        ),
+        _FeatureCard(
+          title:    'Payroll',
+          subtitle: 'Slip & advances',
+          icon:     Icons.receipt_long_outlined,
+          color:    ErpColors.successGreen,
+          enabled:  enabled,
+          onTap: () => _open('Payroll', const PayrollPage()),
+        ),
+        _FeatureCard(
+          title:    'Yearly\nBonus',
+          subtitle: 'View & download',
+          icon:     Icons.workspace_premium_outlined,
+          color:    ErpColors.warningAmber,
+          enabled:  enabled,
+          onTap: () =>
+              _open('Yearly Bonus', const BonusPage()),
+        ),
+        _FeatureCard(
+          title:    'Current\nJobs',
+          subtitle: 'All active machines',
+          icon:     Icons.assignment_turned_in_outlined,
+          color:    const Color(0xFF14B8A6),
+          enabled:  enabled,
+          onTap: () =>
+              _open('Current Jobs', const ActiveJobPage()),
+        ),
+        _FeatureCard(
+          title:    'Machine\nIssues',
+          subtitle: 'Report breakdown',
+          icon:     Icons.build_circle_outlined,
+          color:    const Color(0xFFEA580C),
+          enabled:  enabled,
+          onTap: () =>
+              _open('Machine Issues', const MachineIssuePage()),
+        ),
+        _FeatureCard(
+          title:    'Notice\nBoard',
+          subtitle: 'Announcements',
+          icon:     Icons.campaign_outlined,
+          color:    const Color(0xFF6366F1),
+          enabled:  enabled,
+          onTap: () =>
+              _open('Notice Board', const NoticeBoardPage()),
+        ),
+        _FeatureCard(
+          title:    'Feedback',
+          subtitle: 'Complaints & ideas',
+          icon:     Icons.forum_outlined,
+          color:    const Color(0xFFDB2777),
+          enabled:  enabled,
+          onTap: () => _open('Feedback', const FeedbackPage()),
+        ),
+        _FeatureCard(
+          title:    'My\nProfile',
+          subtitle: 'Personal & shifts',
+          icon:     Icons.person_outline,
+          color:    const Color(0xFF475569),
+          enabled:  enabled,
+          onTap: () => _open('Profile', const ProfilePage()),
+        ),
+      ];
+
+  // ── Dept-specific tiles ──────────────────────────────────────
+  //
+  // Returned as a flat list of children inserted above the EVERYONE
+  // grid (label + grid + spacer). Returns an empty list for
+  // departments that have no specialised flow yet (weaving, dyeing,
+  // blank) so the UX matches the pre-feature behaviour.
+  List<Widget> _buildDepartmentSection({
+    required String dept,
+    required bool enabled,
+  }) {
+    final tiles = _DepartmentTiles.forDept(dept, enabled, _open);
+    if (tiles.isEmpty) return const [];
+    return [
+      _SectionLabel('MY WORK'),
+      const SizedBox(height: 8),
+      GridView.count(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.05,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: tiles,
+      ),
+      const SizedBox(height: 18),
+    ];
+  }
+
   /// Navigates to [page] wrapped in an ErrorBoundary so a crash on
   /// that screen falls back to a recovery card instead of taking
   /// the home dashboard down with it.
   void _open(String label, Widget page) {
     Get.to(() => ErrorBoundary(label: label, child: page));
   }
+}
+
+// ── Department tile factory ─────────────────────────────────────
+//
+// Resolves the worker's department to the tiles that should appear
+// in the "MY WORK" strip. Centralised here so adding a new dept-
+// specific module is a one-place change.
+class _DepartmentTiles {
+  _DepartmentTiles._();
+
+  static List<Widget> forDept(
+    String dept,
+    bool enabled,
+    void Function(String, Widget) open,
+  ) {
+    switch (dept) {
+      case 'warping':
+        return [
+          _FeatureCard(
+            title:    'Warping\nJobs',
+            subtitle: 'Plans & specs',
+            icon:     Icons.linear_scale_rounded,
+            color:    ErpColors.accentBlue,
+            enabled:  enabled,
+            onTap: () =>
+                open('Warping Jobs', const WarpingListPage()),
+          ),
+          _FeatureCard(
+            title:    'Covering\nJobs',
+            subtitle: 'View beam entries',
+            icon:     Icons.layers_outlined,
+            color:    const Color(0xFF0891B2),
+            enabled:  enabled,
+            // Warping dept = READ-ONLY view of covering.
+            onTap: () => open(
+              'Covering Jobs',
+              const CoveringListPage(canRecordBeamEntries: false),
+            ),
+          ),
+        ];
+      case 'covering':
+        return [
+          _FeatureCard(
+            title:    'Covering\nJobs',
+            subtitle: 'Record beam entries',
+            icon:     Icons.layers_outlined,
+            color:    ErpColors.successGreen,
+            enabled:  enabled,
+            onTap: () => open(
+              'Covering Jobs',
+              const CoveringListPage(canRecordBeamEntries: true),
+            ),
+          ),
+        ];
+      case 'checking':
+        return [
+          _FeatureCard(
+            title:    'Wastage\nEntry',
+            subtitle: 'Record reject quantity',
+            icon:     Icons.delete_sweep_outlined,
+            color:    ErpColors.errorRed,
+            enabled:  enabled,
+            onTap: () => open('Wastage', const WastagePage()),
+          ),
+        ];
+      case 'packing':
+        return [
+          _FeatureCard(
+            title:    'Packing\nEntry',
+            subtitle: 'Record packed batches',
+            icon:     Icons.inventory_2_outlined,
+            color:    ErpColors.successGreen,
+            enabled:  enabled,
+            onTap: () =>
+                open('Packing Entry', const PackingJobsPage()),
+          ),
+        ];
+      default:
+        return const [];
+    }
+  }
+}
+
+// ── Section label ───────────────────────────────────────────────
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel(this.label);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 2, left: 2),
+        child: Text(label,
+            style: const TextStyle(
+                color: ErpColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0)),
+      );
 }
 
 class _FeatureCard extends StatelessWidget {
