@@ -19,6 +19,7 @@ import '../../settings/screens/settings_page.dart';
 import '../../shift_history/screens/shift_history_page.dart';
 import '../../shift_production/screens/shift_production_page.dart';
 import '../../warping/screens/warping_list.dart';
+import '../../wastage/screens/wastage_jobs.dart';
 import '../../wastage/screens/wastage_page.dart';
 
 /// Dashboard shown after successful login.
@@ -31,7 +32,7 @@ import '../../wastage/screens/wastage_page.dart';
 ///   weaving  → Enter Shift Production, Shift History, Machine Issue
 ///   warping  → Warping Jobs
 ///   covering → Covering Jobs (beam-entry enabled)
-///   checking → Wastage Entry
+///   checking → Wastage Entry (jobs picker → entry form)
 ///   packing  → Packing Entry
 ///   other    → (no MY WORK strip)
 ///
@@ -51,7 +52,7 @@ class HomePage extends StatelessWidget {
           final u = c.user.value;
           final dept = (u.department ?? '').toLowerCase().trim();
           return Column(children: [
-            // ── Hero header ──────────────────────────────────
+            // ── Hero header ─────────────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
@@ -174,7 +175,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // ── EVERYONE tiles ────────────────────────────────────
+  // ── EVERYONE tiles ──────────────────────────────────
   //
   // Enter Shift Production, Shift History and Machine Issue are no
   // longer here — they moved to MY WORK for weaving operators only.
@@ -294,7 +295,7 @@ class HomePage extends StatelessWidget {
   }
 }
 
-// ── Department tile factory ─────────────────────────────────
+// ── Department tile factory ─────────────────────────────────────
 //
 // Resolves the worker's department to the tiles that should appear
 // in the MY WORK strip. Centralised here so adding a new dept-
@@ -369,6 +370,11 @@ class _DepartmentTiles {
             ),
           ),
         ];
+      // The MY WORK tile for the checking dept is the entry flow —
+      // operators land on the jobs picker so the very first tap is
+      // "start a new wastage entry", matching the admin Add Wastage
+      // flow. The read-only Wastage Report still lives under EVERYONE
+      // (and has its own CTA back into this flow).
       case 'checking':
         return [
           _FeatureCard(
@@ -377,7 +383,8 @@ class _DepartmentTiles {
             icon:     Icons.delete_sweep_outlined,
             color:    ErpColors.errorRed,
             enabled:  enabled,
-            onTap: () => open('Wastage', const WastagePage()),
+            onTap: () =>
+                open('Wastage Entry', const WastageJobsPage()),
           ),
         ];
       case 'packing':
@@ -398,7 +405,7 @@ class _DepartmentTiles {
   }
 }
 
-// ── Section label ─────────────────────────────────────────
+// ── Section label ────────────────────────────────────────
 class _SectionLabel extends StatelessWidget {
   final String label;
   const _SectionLabel(this.label);
