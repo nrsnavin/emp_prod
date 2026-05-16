@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../controllers/wastage_controller.dart';
+import 'wastage_jobs.dart';
 
 class WastagePage extends StatelessWidget {
   const WastagePage({super.key});
@@ -19,6 +20,21 @@ class WastagePage extends StatelessWidget {
         elevation: 0,
         title: const Text('Wastage Report', style: ErpTextStyles.pageTitle),
       ),
+      // Always-visible CTA so any operator (or the checking dept tile,
+      // which routes here) can jump into the entry flow. Mirrors the
+      // admin app where Add Wastage and the report share one feature.
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: ErpColors.errorRed,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: const Text('Record New Wastage',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        onPressed: () async {
+          await Get.to(() => const WastageJobsPage());
+          // Refresh in case a new entry was recorded.
+          c.refresh();
+        },
+      ),
       body: Obx(() {
         if (c.isLoading.value) {
           return const Center(
@@ -30,7 +46,7 @@ class WastagePage extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: c.refresh,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 96),
             children: [
               _SummaryCard(c: c),
               const SizedBox(height: 14),
