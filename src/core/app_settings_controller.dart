@@ -2,28 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// App-wide settings (theme, locale, app-lock).
+/// App-wide settings (locale + app-lock).
 ///
 /// Persisted to SharedPreferences so the choice survives restarts.
-/// `GetMaterialApp` reads `themeMode` and `locale` directly from
-/// here (see `main.dart`).
+/// `GetMaterialApp` reads `locale` directly from here (see
+/// `main.dart`).
+///
+/// Theme: app is locked to the light palette in `main.dart`. The
+/// `themeMode` observable is preserved for historical SharedPreferences
+/// reads but is no longer used by the app shell.
 class AppSettingsController extends GetxController {
-  // ── Storage keys ───────────────────────────────────────────
-  static const _kThemeMode  = 'app.themeMode';      // 'light' | 'dark' | 'system'
-  static const _kLocale     = 'app.locale';         // 'en' | 'ta' | 'hi'
-  static const _kAppLock    = 'app.lockEnabled';    // bool
-  static const _kPinHash    = 'app.pinHash';        // 4-digit PIN, plain (workers'
-                                                    //   device, single-user). For
-                                                    //   stronger guarantees move
-                                                    //   to flutter_secure_storage.
+  // ── Storage keys ───────────────────────────────────
+  static const _kLocale     = 'app.locale';
+  static const _kAppLock    = 'app.lockEnabled';
+  static const _kPinHash    = 'app.pinHash';
 
   static AppSettingsController get find =>
       Get.isRegistered<AppSettingsController>()
           ? Get.find<AppSettingsController>()
           : Get.put(AppSettingsController(), permanent: true);
 
-  // ── Observable state ───────────────────────────────────────
-  final themeMode  = ThemeMode.system.obs;
+  // ── Observable state ───────────────────────────────
+  // Kept around to avoid breaking any caller that still reads it; the
+  // app shell ignores this value (see main.dart).
+  final themeMode  = ThemeMode.light.obs;
   final locale     = const Locale('en').obs;
   final appLock    = false.obs;
   final hasPin     = false.obs;
@@ -40,29 +42,13 @@ class AppSettingsController extends GetxController {
 
   Future<void> _load() async {
     final p = await SharedPreferences.getInstance();
-    themeMode.value = _parseTheme(p.getString(_kThemeMode));
     locale.value    = Locale(p.getString(_kLocale) ?? 'en');
     appLock.value   = p.getBool(_kAppLock) ?? false;
     hasPin.value    = (p.getString(_kPinHash) ?? '').isNotEmpty;
+    // themeMode intentionally not loaded — light-only.
   }
 
-  // ── Theme ──────────────────────────────────────────────────
-  Future<void> setThemeMode(ThemeMode m) async {
-    themeMode.value = m;
-    final p = await SharedPreferences.getInstance();
-    await p.setString(_kThemeMode, m.name);
-    Get.changeThemeMode(m);
-  }
-
-  ThemeMode _parseTheme(String? s) {
-    switch (s) {
-      case 'light': return ThemeMode.light;
-      case 'dark':  return ThemeMode.dark;
-      default:      return ThemeMode.system;
-    }
-  }
-
-  // ── Locale ─────────────────────────────────────────────────
+  // ── Locale ──────────────────────────────────────────────
   Future<void> setLocale(String code) async {
     locale.value = Locale(code);
     final p = await SharedPreferences.getInstance();
@@ -70,7 +56,7 @@ class AppSettingsController extends GetxController {
     Get.updateLocale(Locale(code));
   }
 
-  // ── App lock ───────────────────────────────────────────────
+  // ── App lock ────────────────────────────────────────────
   Future<void> setAppLock(bool on) async {
     appLock.value = on;
     final p = await SharedPreferences.getInstance();

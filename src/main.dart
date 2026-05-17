@@ -15,10 +15,6 @@ import '../src/features/auth/screens/auth_gate.dart';
 import 'theme/erp_theme.dart';
 
 Future<void> main() async {
-  // Wrap the whole app in a zoned guard so async errors that escape
-  // try/catch (e.g. fire-and-forget controller initialisations) get
-  // routed to the global error handler instead of killing the
-  // isolate.
   await runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     installGlobalErrorHandlers();
@@ -44,23 +40,28 @@ class EmployeeApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'app.title'.tr,
 
-      // ── i18n ────────────────────────────────────────────────
+      // ── i18n ─────────────────────────────────────────────
       translations: AppTranslations(),
       fallbackLocale: const Locale('en'),
 
-      // ── Initial bindings ────────────────────────────────────
-      // Settings is permanent so it can drive theme/locale/lock
-      // from anywhere. Login controller is permanent too so the
-      // AuthGate Obx binding sees its observables on first frame.
       initialBinding: BindingsBuilder(() {
         Get.put(AppSettingsController(), permanent: true);
         Get.put(LoginController(),       permanent: true);
       }),
 
-      // ── Theme ───────────────────────────────────────────────
+      // ── Theme ─────────────────────────────────────────────
+      //
+      // Locked to the navy/light palette. We don't ship a real dark
+      // theme (the half-finished ErpTheme.dark() inverted bgSurface
+      // but left every hard-coded ErpColors.textPrimary as navy, so
+      // half the app went black-on-black), and we don't follow the
+      // OS setting either — a system flip would invert the same way.
+      //
+      // To revisit: replace ErpColors with a Material 3 ColorScheme
+      // and migrate every widget that hard-codes a colour to read
+      // from Theme.of(context). Until then, light-only.
       theme:     ErpTheme.light(),
-      darkTheme: ErpTheme.dark(),
-      themeMode: AppSettingsController.find.themeMode.value,
+      themeMode: ThemeMode.light,
       locale:    AppSettingsController.find.locale.value,
 
       home: const ErrorBoundary(

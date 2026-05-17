@@ -21,17 +21,10 @@ class SettingsPage extends StatelessWidget {
       body: Obx(() => ListView(
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
             children: [
-              _SectionHeader('settings.theme'.tr),
-              _ThemeRadio(label: 'settings.theme.system'.tr,
-                  value: ThemeMode.system, current: s.themeMode.value,
-                  onChanged: s.setThemeMode),
-              _ThemeRadio(label: 'settings.theme.light'.tr,
-                  value: ThemeMode.light, current: s.themeMode.value,
-                  onChanged: s.setThemeMode),
-              _ThemeRadio(label: 'settings.theme.dark'.tr,
-                  value: ThemeMode.dark, current: s.themeMode.value,
-                  onChanged: s.setThemeMode),
-              const SizedBox(height: 16),
+              // Theme picker removed — the app is locked to light mode
+              // in main.dart. Half-baked dark mode was rendering text
+              // black-on-black; revisit when we migrate to a proper
+              // Material 3 ColorScheme.
 
               _SectionHeader('settings.language'.tr),
               _LangRadio(code: 'en', label: 'settings.language.en'.tr,
@@ -143,29 +136,6 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
         child: Text(label.toUpperCase(), style: ErpTextStyles.sectionHeader),
-      );
-}
-
-class _ThemeRadio extends StatelessWidget {
-  final String label;
-  final ThemeMode value, current;
-  final void Function(ThemeMode) onChanged;
-  const _ThemeRadio({
-    required this.label,
-    required this.value,
-    required this.current,
-    required this.onChanged,
-  });
-  @override
-  Widget build(BuildContext context) => Container(
-        decoration: ErpDecorations.card,
-        margin: const EdgeInsets.only(bottom: 6),
-        child: RadioListTile<ThemeMode>(
-          value: value,
-          groupValue: current,
-          onChanged: (v) => v != null ? onChanged(v) : null,
-          title: Text(label, style: ErpTextStyles.cardTitle),
-        ),
       );
 }
 
