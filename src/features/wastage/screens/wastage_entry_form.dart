@@ -12,7 +12,14 @@ import '../controllers/wastage_entry_controller.dart';
 //  Mirrors the admin app's Add Wastage layout (Job header → elastic
 //  → operator → quantity → penalty → reason). The operator dropdown
 //  is sourced from /wastage/job-operators?id=<jobId> — distinct list
-//  of employees who worked on the job.
+//  of employees who logged shifts on the job.
+//
+//  Behaviour: if the operator fetch returns an empty list (no shift
+//  has been logged on the job yet), a blocking dialog pops up
+//  explaining "Shift not logged" and the form navigates back to the
+//  jobs picker. Wastage cannot be recorded without an attributable
+//  operator — the backend rejects it, and the audit trail would be
+//  meaningless.
 //
 //  Field names match backend contract (api/wastage.js add-wastage):
 //    job, elastic, employee, quantity, reason  (penalty optional).
@@ -34,14 +41,86 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
   WastageEntryController get c => widget.controller;
   final _formKey = GlobalKey<FormState>();
 
+  // Guard so the dialog only shows once even if the page rebuilds.
+  bool _shiftDialogShown = false;
+
   @override
   void initState() {
     super.initState();
     final jobId = SafeJson.asString(widget.job['_id']);
     if (jobId.isNotEmpty) {
-      // Fire-and-forget — the dropdown handles its own loading state.
-      c.fetchOperators(jobId);
+      c.fetchOperators(jobId).then((_) {
+        if (!mounted) return;
+        // Defer the dialog so it fires after the first frame is mounted
+        // and the BuildContext is safe to use.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _shiftDialogShown) return;
+          if (!c.isLoadingOps.value && c.operators.isEmpty) {
+            _shiftDialogShown = true;
+            _showShiftNotLoggedDialog();
+          }
+        });
+      });
     }
+  }
+
+  Future<void> _showShiftNotLoggedDialog() async {
+    final jobOrderNo = SafeJson.asInt(widget.job['jobOrderNo']);
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: ErpColors.bgSurface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)),
+        icon: const Icon(Icons.warning_amber_rounded,
+            color: ErpColors.warningAmber, size: 36),
+        title: const Text(
+          'Shift Not Logged',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: ErpColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'No operator has logged a shift on Job #$jobOrderNo yet. Wastage can only be recorded against an operator who actually produced the work.\n\nAsk the weaver to log their shift first, then come back to record the wastage.',
+          style: const TextStyle(
+            color: ErpColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          SizedBox(
+            width: 140,
+            height: 42,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ErpColors.accentBlue,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    // Bounce back to the jobs picker — there's nothing to do on this
+    // form without an operator to attribute the wastage to.
+    Navigator.of(context).pop();
   }
 
   @override
@@ -233,6 +312,12 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
               }
 
               if (c.operators.isEmpty) {
+                // The blocking dialog has already fired from initState's
+                // post-frame callback; this static notice covers the brief
+                // moment before the dialog actually paints, and any case
+                // where the user dismissed the dialog without the auto-pop
+                // (shouldn't happen — barrierDismissible:false — but kept
+                // as a visible safety net).
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -247,7 +332,7 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                          'No operators have logged shifts on this job yet — cannot attribute wastage',
+                          'Shift not logged on this job — wastage cannot be recorded',
                           style: TextStyle(
                               color: ErpColors.textPrimary,
                               fontSize: 12,
@@ -363,42 +448,55 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
             const SizedBox(height: 22),
 
             // ── Submit ────────────────────────────────────────────
-            Obx(() => SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ErpColors.errorRed,
-                      disabledBackgroundColor:
-                          ErpColors.errorRed.withOpacity(0.45),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: c.isSubmitting.value
-                        ? null
-                        : () async {
-                            if (!_formKey.currentState!.validate()) return;
-                            FocusScope.of(context).unfocus();
-                            final ok = await c.submit(jobId: jobId);
-                            if (ok && mounted) Get.back();
-                          },
-                    icon: c.isSubmitting.value
-                        ? const SizedBox(
-                            width: 18, height: 18,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : const Icon(Icons.warning_amber_rounded,
-                            color: Colors.white, size: 20),
-                    label: Text(
-                      c.isSubmitting.value ? 'Saving…' : 'Record Wastage',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15),
-                    ),
+            //
+            // Submit is disabled (in addition to client-side validation)
+            // whenever no operator is available — belt-and-braces with
+            // the blocking dialog.
+            Obx(() {
+              final disabled = c.isSubmitting.value ||
+                  (c.isLoadingOps.value) ||
+                  c.operators.isEmpty;
+              return SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ErpColors.errorRed,
+                    disabledBackgroundColor:
+                        ErpColors.errorRed.withOpacity(0.45),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                )),
+                  onPressed: disabled
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
+                          FocusScope.of(context).unfocus();
+                          final ok = await c.submit(jobId: jobId);
+                          if (ok && mounted) Get.back();
+                        },
+                  icon: c.isSubmitting.value
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5))
+                      : const Icon(Icons.warning_amber_rounded,
+                          color: Colors.white, size: 20),
+                  label: Text(
+                    c.isSubmitting.value
+                        ? 'Saving…'
+                        : (c.operators.isEmpty
+                            ? 'Shift not logged'
+                            : 'Record Wastage'),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15),
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),
