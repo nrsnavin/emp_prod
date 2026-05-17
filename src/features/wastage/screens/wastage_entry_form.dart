@@ -4,21 +4,19 @@ import 'package:get/get.dart';
 
 import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
-import '../../auth/controllers/login_controller.dart';
 import '../controllers/wastage_entry_controller.dart';
 
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  WASTAGE ENTRY FORM — POST /wastage/add-wastage
 //
 //  Mirrors the admin app's Add Wastage layout (Job header → elastic
-//  → quantity → penalty → reason). Unlike admin, the operator
-//  picker is replaced by a read-only "Recorded by" line pulled from
-//  the logged-in employee — the worker submitting IS the worker the
-//  wastage is attributed to.
+//  → operator → quantity → penalty → reason). The operator dropdown
+//  is sourced from /wastage/job-operators?id=<jobId> — distinct list
+//  of employees who worked on the job.
 //
 //  Field names match backend contract (api/wastage.js add-wastage):
 //    job, elastic, employee, quantity, reason  (penalty optional).
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 class WastageEntryFormPage extends StatefulWidget {
   final Map<String, dynamic> job;
   final WastageEntryController controller;
@@ -35,6 +33,16 @@ class WastageEntryFormPage extends StatefulWidget {
 class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
   WastageEntryController get c => widget.controller;
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    final jobId = SafeJson.asString(widget.job['_id']);
+    if (jobId.isNotEmpty) {
+      // Fire-and-forget — the dropdown handles its own loading state.
+      c.fetchOperators(jobId);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,8 +65,6 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
         })
         .where((e) => (e['id'] as String).isNotEmpty)
         .toList();
-
-    final u = LoginController.find.user.value;
 
     return Scaffold(
       backgroundColor: ErpColors.bgBase,
@@ -198,6 +204,97 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
                   )),
             const SizedBox(height: 18),
 
+            // ── Operator picker ───────────────────────────────
+            _SectionLabel(label: 'OPERATOR'),
+            const SizedBox(height: 8),
+            Obx(() {
+              if (c.isLoadingOps.value) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: ErpColors.bgMuted,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: ErpColors.borderLight),
+                  ),
+                  child: Row(children: const [
+                    SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(
+                          color: ErpColors.accentBlue, strokeWidth: 2),
+                    ),
+                    SizedBox(width: 10),
+                    Text('Loading operators…',
+                        style: TextStyle(
+                            color: ErpColors.textSecondary,
+                            fontSize: 12)),
+                  ]),
+                );
+              }
+
+              if (c.operators.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ErpColors.warningAmber.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: ErpColors.warningAmber.withOpacity(0.45)),
+                  ),
+                  child: Row(children: const [
+                    Icon(Icons.warning_amber_rounded,
+                        size: 14, color: ErpColors.warningAmber),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                          'No operators have logged shifts on this job yet — cannot attribute wastage',
+                          style: TextStyle(
+                              color: ErpColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                );
+              }
+
+              return DropdownButtonFormField<String>(
+                value: c.selectedEmployeeId.value,
+                isExpanded: true,
+                style: ErpTextStyles.fieldValue,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: ErpColors.textSecondary, size: 18),
+                decoration: ErpDecorations.formInput(
+                  'Operator *',
+                  prefix: const Icon(Icons.person_outline,
+                      size: 16, color: ErpColors.textMuted),
+                ),
+                hint: const Text('Attribute wastage to operator',
+                    style: TextStyle(
+                        color: ErpColors.textMuted, fontSize: 12)),
+                items: c.operators.map((op) {
+                  final id   = SafeJson.asString(op['_id']);
+                  final name = SafeJson.asString(op['name'], '—');
+                  final dept = SafeJson.asStringOrNull(op['department']);
+                  return DropdownMenuItem<String>(
+                    value: id,
+                    child: Text(
+                      dept != null && dept.isNotEmpty
+                          ? '$name  ·  $dept'
+                          : name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: ErpColors.textPrimary),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (v) => c.selectedEmployeeId.value = v,
+                validator: (v) => v == null ? 'Pick the operator' : null,
+              );
+            }),
+            const SizedBox(height: 18),
+
             // ── Wastage details ──────────────────────────────
             _SectionLabel(label: 'WASTAGE DETAILS'),
             const SizedBox(height: 8),
@@ -263,54 +360,9 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
                 return null;
               },
             ),
-            const SizedBox(height: 18),
-
-            // ── Recorded by (auto from logged-in operator) ───
-            _SectionLabel(label: 'RECORDED BY'),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: ErpColors.bgMuted,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: ErpColors.borderLight),
-              ),
-              child: Row(children: [
-                const Icon(Icons.badge_outlined,
-                    size: 16, color: ErpColors.textMuted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        u.name.isNotEmpty ? u.name : 'You',
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: ErpColors.textPrimary),
-                      ),
-                      Text(
-                        [
-                          if (u.department?.isNotEmpty ?? false) u.department!,
-                          if (u.employeeRole?.isNotEmpty ?? false) u.employeeRole!,
-                        ].join('  ·  '),
-                        style: const TextStyle(
-                            fontSize: 11,
-                            color: ErpColors.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!u.hasEmployeeLink)
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 16, color: ErpColors.warningAmber),
-              ]),
-            ),
             const SizedBox(height: 22),
 
-            // ── Submit ───────────────────────────────────────
+            // ── Submit ────────────────────────────────────────────
             Obx(() => SizedBox(
                   width: double.infinity,
                   height: 50,

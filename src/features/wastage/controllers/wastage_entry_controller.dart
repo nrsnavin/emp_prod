@@ -4,41 +4,47 @@ import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/safe_json.dart';
-import '../../auth/controllers/login_controller.dart';
 
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 //  WASTAGE ENTRY CONTROLLER (worker)
 //
 //  GET  /wastage/jobs-for-wastage  → weaving/finishing/checking jobs
+//  GET  /wastage/job-operators     → operators who worked on a job
 //  POST /wastage/add-wastage       → record a wastage entry
 //
 //  Backend contract (matches api/wastage.js):
 //    Required: job, elastic, employee, quantity (positive number), reason
 //    Optional: penalty
 //
-//  `employee` is auto-filled from the logged-in operator's linked
-//  Employee id — the worker recording the wastage is the worker the
-//  wastage is attributed to. No picker (admin uses a picker because
-//  admins record on behalf of others).
-// ═════════════════════════════════════════════════════════════
+//  `employee` is the operator chosen from the job-operators dropdown
+//  (matching the admin app's behaviour). Wastage on a checking-dept
+//  reject is attributed to the WORKER who produced the bad meters,
+//  not the checker who logged the entry.
+// ══════════════════════════════════════════════════════════════
 class WastageEntryController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
-  // ── Jobs list state ──────────────────────────────────
+  // ── Jobs list state ───────────────────────────────
   final jobs      = <Map<String, dynamic>>[].obs;
   final isLoading = true.obs;
   final errorMsg  = Rxn<String>();
 
+  // ── Operators (per selected job) ───────────────────────
+  // Distinct list of employees who worked on the job (from ShiftDetail).
+  // The checker picks one of these as the operator to attribute the
+  // wastage to. Re-fetched whenever a different job is selected.
+  final operators       = <Map<String, dynamic>>[].obs;
+  final isLoadingOps    = false.obs;
+  final lastFetchedJob  = Rxn<String>();
+
   // ── Form state ───────────────────────────────────────
-  final selectedElasticId = Rxn<String>();
-  final quantityCtrl = TextEditingController();
-  final penaltyCtrl  = TextEditingController();
-  final reasonCtrl   = TextEditingController();
+  final selectedElasticId  = Rxn<String>();
+  final selectedEmployeeId = Rxn<String>();
+  final quantityCtrl       = TextEditingController();
+  final penaltyCtrl        = TextEditingController();
+  final reasonCtrl         = TextEditingController();
 
   final isSubmitting = false.obs;
-
-  String get _empId =>
-      LoginController.find.user.value.employeeId ?? '';
 
   @override
   void onInit() {
@@ -58,10 +64,11 @@ class WastageEntryController extends GetxController {
     quantityCtrl.clear();
     penaltyCtrl.clear();
     reasonCtrl.clear();
-    selectedElasticId.value = null;
+    selectedElasticId.value  = null;
+    selectedEmployeeId.value = null;
   }
 
-  // ── Jobs ───────────────────────────────────────────────
+  // ── Jobs ────────────────────────────────────────────────
   Future<void> fetchJobs() async {
     isLoading.value = true;
     errorMsg.value  = null;
@@ -79,19 +86,55 @@ class WastageEntryController extends GetxController {
     }
   }
 
+  // ── Operators ────────────────────────────────────────────
+  Future<void> fetchOperators(String jobId) async {
+    if (jobId.isEmpty) return;
+    // Cache: don't refetch when the same job is reopened.
+    if (lastFetchedJob.value == jobId && operators.isNotEmpty) return;
+
+    isLoadingOps.value = true;
+    operators.clear();
+    selectedEmployeeId.value = null;
+
+    try {
+      final res  = await _dio.get('/wastage/job-operators',
+          queryParameters: {'id': jobId});
+      final body = SafeJson.asMap(res.data);
+      operators.assignAll(SafeJson.asMapList(body['operators']));
+      lastFetchedJob.value = jobId;
+
+      // Auto-select when only one operator worked on the job.
+      if (operators.length == 1) {
+        final id = SafeJson.asStringOrNull(operators.first['_id']);
+        if (id != null) selectedEmployeeId.value = id;
+      }
+    } on DioException catch (e) {
+      _snack(
+        'Error',
+        SafeJson.apiErrorMessage(e.response?.data) ??
+            'Failed to load operators',
+        isError: true,
+      );
+    } catch (e) {
+      _snack('Error', e.toString(), isError: true);
+    } finally {
+      isLoadingOps.value = false;
+    }
+  }
+
   // ── Submit ─────────────────────────────────────────────
   Future<bool> submit({required String jobId}) async {
     if (jobId.isEmpty) {
       _snack('Validation', 'No job selected', isError: true);
       return false;
     }
-    if (_empId.isEmpty) {
-      _snack('Validation',
-          'No employee record linked to your login', isError: true);
-      return false;
-    }
     if (selectedElasticId.value == null) {
       _snack('Validation', 'Pick the elastic', isError: true);
+      return false;
+    }
+    if (selectedEmployeeId.value == null ||
+        selectedEmployeeId.value!.isEmpty) {
+      _snack('Validation', 'Pick the operator', isError: true);
       return false;
     }
     final qty = double.tryParse(quantityCtrl.text.trim());
@@ -111,7 +154,7 @@ class WastageEntryController extends GetxController {
       await _dio.post('/wastage/add-wastage', data: {
         'job':      jobId,
         'elastic':  selectedElasticId.value,
-        'employee': _empId,
+        'employee': selectedEmployeeId.value,
         'quantity': qty,
         'penalty':  penalty,
         'reason':   reason,
