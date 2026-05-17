@@ -11,6 +11,11 @@ import '../../../core/safe_json.dart';
 //  GET  /packing/jobs-packing                    → active packing-ready jobs
 //  GET  /packing/employees-by-department/checking→ checker dropdown
 //  GET  /packing/employees-by-department/packing → packer dropdown
+//  GET  /wastage/job-operators?id=<jobId>        → shift-presence guard
+//                                                  (reused; same data
+//                                                  populates the
+//                                                  "Shift Not Logged"
+//                                                  dialog)
 //  POST /packing/create-packing                  → submit a packing record
 //
 //  Field names match the backend contract — see api/packing.js
@@ -20,18 +25,29 @@ import '../../../core/safe_json.dart';
 class PackingEntryController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
-  // ── Jobs list state ───────────────────────────────────
+  // ── Jobs list state ──────────────────────────────────
   final jobs       = <Map<String, dynamic>>[].obs;
   final isLoading  = true.obs;
   final errorMsg   = Rxn<String>();
 
   // ── Employee dropdowns ───────────────────────────────
-  // Checker comes from the `checking` dept; packer from `packing` dept.
   final checkingEmployees = <Map<String, dynamic>>[].obs;
   final packingEmployees  = <Map<String, dynamic>>[].obs;
   final isEmpLoading      = false.obs;
 
-  // ── Form state ────────────────────────────────────────
+  // ── Shift-presence guard ───────────────────────────────
+  // Distinct list of employees who logged shifts on the job. Used
+  // ONLY to decide whether any shift exists — the packing form
+  // doesn't expose an operator picker (checked/packed come from
+  // dept dropdowns). If this list is empty after fetch, the form
+  // blocks with a "Shift Not Logged" dialog. We reuse the wastage
+  // endpoint because the shape is identical and adding a duplicate
+  // route on /packing would just be noise.
+  final jobOperators     = <Map<String, dynamic>>[].obs;
+  final isLoadingJobOps  = false.obs;
+  final lastFetchedJob   = Rxn<String>();
+
+  // ── Form state ─────────────────────────────────────────
   final selectedElasticId   = Rxn<String>();
   final selectedCheckedById = Rxn<String>();
   final selectedPackedById  = Rxn<String>();
@@ -101,8 +117,6 @@ class PackingEntryController extends GetxController {
   }
 
   // ── Employees ──────────────────────────────────────────
-  // Two dept lookups in parallel — checker + packer dropdowns.
-  // Cached after first load.
   Future<void> loadEmployees() async {
     if (checkingEmployees.isNotEmpty && packingEmployees.isNotEmpty) return;
     isEmpLoading.value = true;
@@ -133,7 +147,37 @@ class PackingEntryController extends GetxController {
     return const [];
   }
 
-  // ── Submit ──────────────────────────────────────────────
+  // ── Shift presence ────────────────────────────────────
+  // Reuses /wastage/job-operators — same data, no need to duplicate
+  // the route on the packing router. Empty result → no shift logged.
+  Future<void> fetchJobOperators(String jobId) async {
+    if (jobId.isEmpty) return;
+    if (lastFetchedJob.value == jobId && jobOperators.isNotEmpty) return;
+
+    isLoadingJobOps.value = true;
+    jobOperators.clear();
+
+    try {
+      final res  = await _dio.get('/wastage/job-operators',
+          queryParameters: {'id': jobId});
+      final body = SafeJson.asMap(res.data);
+      jobOperators.assignAll(SafeJson.asMapList(body['operators']));
+      lastFetchedJob.value = jobId;
+    } on DioException catch (e) {
+      _snack(
+        'Error',
+        SafeJson.apiErrorMessage(e.response?.data) ??
+            'Failed to check shift presence',
+        isError: true,
+      );
+    } catch (e) {
+      _snack('Error', e.toString(), isError: true);
+    } finally {
+      isLoadingJobOps.value = false;
+    }
+  }
+
+  // ── Submit ─────────────────────────────────────────────
   Future<bool> submit({required String jobId}) async {
     final meter   = double.tryParse(meterCtrl.text.trim());
     final joints  = int.tryParse(jointsCtrl.text.trim());
@@ -145,6 +189,13 @@ class PackingEntryController extends GetxController {
 
     if (jobId.isEmpty) {
       _snack('Validation', 'No job selected', isError: true);
+      return false;
+    }
+    // Defense-in-depth: same check the dialog enforces in the UI.
+    if (jobOperators.isEmpty) {
+      _snack('Validation',
+          'Shift not logged on this job — packing entry not allowed',
+          isError: true);
       return false;
     }
     if (selectedElasticId.value == null) {

@@ -12,6 +12,11 @@ import '../controllers/packing_entry_controller.dart';
 //  Mirrors the admin app's Add Packing layout: Job header → elastic
 //  picker → production data (meters, joints, stretch, size) → weights
 //  (net / tare / gross) → QC (checkedBy / packedBy).
+//
+//  Shift-presence guard: on init we hit /wastage/job-operators?id=
+//  to see if anyone has logged a shift on this job. Empty response
+//  → "Shift Not Logged" dialog → pop back. Without a shift, there's
+//  nothing to pack — the weaver hasn't produced anything yet.
 // ══════════════════════════════════════════════════════════════
 class PackingEntryFormPage extends StatefulWidget {
   final Map<String, dynamic> job;
@@ -30,10 +35,83 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
   PackingEntryController get c => widget.controller;
   final _formKey = GlobalKey<FormState>();
 
+  bool _shiftDialogShown = false;
+
   @override
   void initState() {
     super.initState();
     c.loadEmployees();
+
+    final jobId = SafeJson.asString(widget.job['_id']);
+    if (jobId.isNotEmpty) {
+      c.fetchJobOperators(jobId).then((_) {
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _shiftDialogShown) return;
+          if (!c.isLoadingJobOps.value && c.jobOperators.isEmpty) {
+            _shiftDialogShown = true;
+            _showShiftNotLoggedDialog();
+          }
+        });
+      });
+    }
+  }
+
+  Future<void> _showShiftNotLoggedDialog() async {
+    final jobOrderNo = SafeJson.asInt(widget.job['jobOrderNo']);
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: ErpColors.bgSurface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)),
+        icon: const Icon(Icons.warning_amber_rounded,
+            color: ErpColors.warningAmber, size: 36),
+        title: const Text(
+          'Shift Not Logged',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: ErpColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'No shift has been logged on Job #$jobOrderNo yet. Packing can only be recorded after the weaver has produced output.\n\nAsk the weaver to log their shift production first, then come back to record packing.',
+          style: const TextStyle(
+            color: ErpColors.textSecondary,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          SizedBox(
+            width: 140,
+            height: 42,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ErpColors.accentBlue,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -44,7 +122,6 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
     final custName   = SafeJson.asStringOrNull(cust['name']) ??
         SafeJson.asStringOrNull(widget.job['customer']);
 
-    // Job.elastics is a list of { elastic: { _id, name }, quantity }.
     final elastics = SafeJson.asMapList(widget.job['elastics'])
         .map((row) {
           final el = SafeJson.asMap(row['elastic']);
@@ -82,7 +159,6 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            // Job header card
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -119,9 +195,40 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
                 ),
               ]),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // ── Elastic picker ────────────────────────────────
+            // Shift-presence inline notice. The blocking dialog fires
+            // from initState; this strip is the static fallback that's
+            // visible during the brief window before the dialog mounts.
+            Obx(() {
+              if (c.isLoadingJobOps.value) return const SizedBox.shrink();
+              if (c.jobOperators.isNotEmpty) return const SizedBox.shrink();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ErpColors.warningAmber.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: ErpColors.warningAmber.withOpacity(0.45)),
+                ),
+                child: Row(children: const [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 14, color: ErpColors.warningAmber),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                        'Shift not logged on this job — packing cannot be recorded',
+                        style: TextStyle(
+                            color: ErpColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              );
+            }),
+            const SizedBox(height: 4),
+
             _SectionLabel(label: 'ELASTIC'),
             const SizedBox(height: 8),
             Obx(() => DropdownButtonFormField<String>(
@@ -154,7 +261,6 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
                 )),
             const SizedBox(height: 18),
 
-            // ── Production data ───────────────────────────────
             _SectionLabel(label: 'PRODUCTION DATA'),
             const SizedBox(height: 8),
             Row(children: [
@@ -205,7 +311,6 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
             ]),
             const SizedBox(height: 18),
 
-            // ── Weights ──────────────────────────────────────────
             _SectionLabel(label: 'WEIGHT DETAILS'),
             const SizedBox(height: 8),
             _numField(
@@ -251,7 +356,6 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
             ]),
             const SizedBox(height: 18),
 
-            // ── QC ───────────────────────────────────────────────
             _SectionLabel(label: 'QUALITY CONTROL'),
             const SizedBox(height: 8),
             Obx(() {
@@ -316,43 +420,56 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
             }),
             const SizedBox(height: 22),
 
-            // ── Submit ───────────────────────────────────────────
-            Obx(() => SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ErpColors.successGreen,
-                      disabledBackgroundColor:
-                          ErpColors.successGreen.withOpacity(0.45),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: c.isSubmitting.value
-                        ? null
-                        : () async {
-                            if (!_formKey.currentState!.validate()) return;
-                            FocusScope.of(context).unfocus();
-                            final ok = await c.submit(jobId: jobId);
-                            if (ok && mounted) Get.back();
-                          },
-                    icon: c.isSubmitting.value
-                        ? const SizedBox(
-                            width: 18, height: 18,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : const Icon(Icons.check_circle_outline_rounded,
-                            color: Colors.white, size: 20),
-                    label: Text(
-                      c.isSubmitting.value ? 'Saving…' : 'Save Packing Entry',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15),
-                    ),
+            // Submit — disabled while we're checking shift presence and
+            // any time the job has no shift logged (the dialog handles
+            // the latter case but the disabled state is the visible cue).
+            Obx(() {
+              final noShift = !c.isLoadingJobOps.value &&
+                  c.jobOperators.isEmpty;
+              final disabled = c.isSubmitting.value ||
+                  c.isLoadingJobOps.value ||
+                  noShift;
+              return SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ErpColors.successGreen,
+                    disabledBackgroundColor:
+                        ErpColors.successGreen.withOpacity(0.45),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                )),
+                  onPressed: disabled
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
+                          FocusScope.of(context).unfocus();
+                          final ok = await c.submit(jobId: jobId);
+                          if (ok && mounted) Get.back();
+                        },
+                  icon: c.isSubmitting.value
+                      ? const SizedBox(
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2.5))
+                      : const Icon(Icons.check_circle_outline_rounded,
+                          color: Colors.white, size: 20),
+                  label: Text(
+                    c.isSubmitting.value
+                        ? 'Saving…'
+                        : (noShift
+                            ? 'Shift not logged'
+                            : 'Save Packing Entry'),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15),
+                  ),
+                ),
+              );
+            }),
           ],
         ),
       ),
