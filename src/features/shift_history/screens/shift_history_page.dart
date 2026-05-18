@@ -99,22 +99,53 @@ class _ShiftCard extends StatelessWidget {
     final when = dt == null ? '—' : fmt.format(dt);
     final shiftLabel = SafeJson.asString(s['shift'], '—');
     final status     = SafeJson.asString(s['status'], 'open').toLowerCase();
-    final production = SafeJson.asNum(s['production'])?.toString()
-        ?? SafeJson.asNum(s['productionMeters'])?.toString()
-        ?? '—';
-    final timer    = SafeJson.asString(s['timer'], '—');
-    final feedback = SafeJson.asString(s['feedback']);
 
-    final isClosed = status == 'closed';
-    final chipBg   = isClosed
-        ? ErpColors.statusCompletedBg
-        : ErpColors.statusOpenBg;
-    final chipBorder = isClosed
-        ? ErpColors.statusCompletedBorder
-        : ErpColors.statusOpenBorder;
-    final chipText = isClosed
-        ? ErpColors.statusCompletedText
-        : ErpColors.statusOpenText;
+    // Pending entries carry the worker's value in the new `submitted*`
+    // fields (admin hasn't blessed them yet, so `productionMeters` /
+    // `timer` / `feedback` are still 0/blank). Fall back to those so
+    // the worker sees what they typed.
+    final isPending  = status == 'pending_verification';
+    final isClosed   = status == 'closed';
+
+    final productionRaw = isPending
+        ? (SafeJson.asNum(s['submittedProductionMeters']) ??
+           SafeJson.asNum(s['production']) ??
+           SafeJson.asNum(s['productionMeters']))
+        : (SafeJson.asNum(s['production']) ??
+           SafeJson.asNum(s['productionMeters']));
+    final production = productionRaw?.toString() ?? '—';
+
+    final timer = isPending
+        ? SafeJson.asString(s['submittedTimer'],
+            SafeJson.asString(s['timer'], '—'))
+        : SafeJson.asString(s['timer'], '—');
+
+    final feedback = isPending
+        ? SafeJson.asString(s['submittedFeedback'],
+            SafeJson.asString(s['feedback']))
+        : SafeJson.asString(s['feedback']);
+
+    // Pill colours per status. Pending = amber, closed = green, open = blue.
+    final Color chipBg;
+    final Color chipBorder;
+    final Color chipText;
+    final String chipLabel;
+    if (isPending) {
+      chipBg     = ErpColors.warningAmber.withOpacity(0.12);
+      chipBorder = ErpColors.warningAmber.withOpacity(0.45);
+      chipText   = ErpColors.warningAmber;
+      chipLabel  = 'PENDING VERIFICATION';
+    } else if (isClosed) {
+      chipBg     = ErpColors.statusCompletedBg;
+      chipBorder = ErpColors.statusCompletedBorder;
+      chipText   = ErpColors.statusCompletedText;
+      chipLabel  = 'CLOSED';
+    } else {
+      chipBg     = ErpColors.statusOpenBg;
+      chipBorder = ErpColors.statusOpenBorder;
+      chipText   = ErpColors.statusOpenText;
+      chipLabel  = status.toUpperCase();
+    }
 
     return Container(
       decoration: ErpDecorations.card,
@@ -131,11 +162,12 @@ class _ShiftCard extends StatelessWidget {
                 border: Border.all(color: chipBorder),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(status.toUpperCase(),
+              child: Text(chipLabel,
                   style: TextStyle(
                       color: chipText,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800)),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4)),
             ),
             const SizedBox(width: 8),
             Text(shiftLabel.toUpperCase(),
@@ -154,7 +186,37 @@ class _ShiftCard extends StatelessWidget {
             const SizedBox(width: 12),
             _Stat('Timer', timer),
           ]),
-          if (isClosed && feedback.isNotEmpty) ...[
+          if (isPending) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: ErpColors.warningAmber.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: ErpColors.warningAmber.withOpacity(0.35)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Icon(Icons.hourglass_top_rounded,
+                      color: ErpColors.warningAmber, size: 14),
+                  SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Submitted — waiting on admin verification. Numbers shown are what you entered; the admin may adjust before they’re finalised.',
+                      style: TextStyle(
+                          color: ErpColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if ((isClosed || isPending) && feedback.isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(10),
