@@ -66,6 +66,8 @@ class _MonthSelector extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text('$monthName ${c.selectedYear.value}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: ErpTextStyles.cardTitle),
         ),
         IconButton(

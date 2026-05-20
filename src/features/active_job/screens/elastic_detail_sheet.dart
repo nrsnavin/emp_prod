@@ -155,12 +155,16 @@ class _Header extends StatelessWidget {
                   ),
                 ),
               Text(name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: ErpColors.textPrimary,
                       fontSize: 17,
                       fontWeight: FontWeight.w900)),
               const SizedBox(height: 2),
               Text('Weave pattern · $weaveType-shaft',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: ErpColors.textSecondary, fontSize: 12)),
             ],

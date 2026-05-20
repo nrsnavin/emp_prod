@@ -46,6 +46,18 @@ class LeaveController extends GetxController {
       pending.assignAll(list.where((e) => e['status'] == 'pending'));
       approved.assignAll(list.where((e) => e['status'] == 'approved'));
       rejected.assignAll(list.where((e) => e['status'] == 'rejected'));
+
+      // Surface any status the backend invented that we don't bucket
+      // yet — silently dropping them masks schema drift.
+      final dropped = list
+          .where((e) => !{'pending', 'approved', 'rejected'}
+              .contains(e['status']))
+          .toList();
+      if (dropped.isNotEmpty) {
+        // ignore: avoid_print
+        print('[leave] unknown statuses dropped: '
+            '${dropped.map((e) => e['status']).toSet()}');
+      }
     } on DioException catch (e) {
       errorMsg.value = SafeJson.apiErrorMessage(e.response?.data) ??
           'Failed to load leave history';
