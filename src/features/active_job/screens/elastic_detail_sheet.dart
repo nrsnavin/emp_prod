@@ -373,7 +373,9 @@ class _InventorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final produced = SafeJson.asNum(elastic['quantityProduced']);
-    final stock    = SafeJson.asNum(elastic['stock']);
+    // Worker portal is admin-only for stock visibility. Show
+    // lifetime production (useful context for the loom operator)
+    // but suppress current warehouse stock.
     return ErpSectionCard(
       title: 'INVENTORY',
       icon: Icons.inventory_2_outlined,
@@ -381,9 +383,6 @@ class _InventorySection extends StatelessWidget {
         _kv('Total produced so far',
             produced != null ? '$produced m' : null,
             help: 'Lifetime production of this elastic.'),
-        _kv('Currently in stock',
-            stock != null ? '$stock m' : null,
-            help: 'Meters available in the warehouse right now.'),
       ]),
     );
   }
