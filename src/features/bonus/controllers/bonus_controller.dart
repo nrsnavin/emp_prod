@@ -79,7 +79,8 @@ class BonusController extends GetxController {
         throw 'Empty PDF response';
       }
       final dir = await getTemporaryDirectory();
-      final safeName = _empName.replaceAll(RegExp(r'\s+'), '_');
+      final rawName = _empName.isNotEmpty ? _empName : 'employee';
+      final safeName = rawName.replaceAll(RegExp(r'\s+'), '_');
       final file = File(
           '${dir.path}/bonus-$safeName-${selectedYear.value}.pdf');
       await file.writeAsBytes(bytes);

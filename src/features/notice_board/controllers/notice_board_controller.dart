@@ -25,6 +25,15 @@ class NoticeBoardController extends GetxController {
   Future<void> fetch() async {
     isLoading.value = true;
     errorMsg.value  = null;
+    if (_dept.isEmpty) {
+      // No department on the user → server would return every active
+      // announcement, which is misleading on the worker portal.
+      notices.clear();
+      errorMsg.value =
+          'No department on your account — ask your supervisor to link one.';
+      isLoading.value = false;
+      return;
+    }
     try {
       final res = await _dio.get(
         '/announcement/active',

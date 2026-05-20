@@ -37,7 +37,11 @@ class PayrollController extends GetxController {
     isLoading.value = true;
     errorMsg.value  = null;
     try {
-      // Fire both in parallel; tolerate the slip 404 (not generated yet).
+      // Fire both in parallel; tolerate the slip 404 (not generated yet)
+      // but rethrow auth failures so they surface in errorMsg instead
+      // of being masked as "no slip yet".
+      bool isMissing(Object err) =>
+          err is DioException && err.response?.statusCode == 404;
       final slipFut = _dio.get(
         '/payroll/slip/$_empId',
         queryParameters: {
@@ -46,14 +50,14 @@ class PayrollController extends GetxController {
         },
       ).then<Map<String, dynamic>?>(
           (res) => SafeJson.asMapOrNull(SafeJson.asMap(res.data)['data']))
-          .catchError((_) => null);
+          .catchError((e) => null, test: isMissing);
 
       final advFut = _dio.get(
         '/payroll/advance',
         queryParameters: {'employeeId': _empId},
       ).then<List<Map<String, dynamic>>>(
           (res) => SafeJson.asMapList(SafeJson.asMap(res.data)['data']))
-          .catchError((_) => const <Map<String, dynamic>>[]);
+          .catchError((e) => const <Map<String, dynamic>>[], test: isMissing);
 
       final results = await Future.wait([slipFut, advFut]);
       slip.value     = results[0] as Map<String, dynamic>?;
