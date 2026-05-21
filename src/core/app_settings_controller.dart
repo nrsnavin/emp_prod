@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,11 +15,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Theme: app is locked to the light palette in `main.dart`. The
 /// `themeMode` observable is preserved for historical SharedPreferences
 /// reads but is no longer used by the app shell.
+///
+/// PIN storage:
+///   The app-lock PIN is hashed with SHA-256 using a per-install
+///   random salt. The salt is stored alongside the hash so verify
+///   can recompute, and a legacy migration path catches PINs that
+///   were written under the older plaintext scheme (no salt key
+///   present): a one-time plaintext match silently re-writes as a
+///   salted hash and then accepts the unlock.
 class AppSettingsController extends GetxController {
   // ── Storage keys ───────────────────────────────────
   static const _kLocale     = 'app.locale';
   static const _kAppLock    = 'app.lockEnabled';
   static const _kPinHash    = 'app.pinHash';
+  static const _kPinSalt    = 'app.pinSalt';
 
   static AppSettingsController get find =>
       Get.isRegistered<AppSettingsController>()
@@ -63,22 +76,50 @@ class AppSettingsController extends GetxController {
     await p.setBool(_kAppLock, on);
     if (!on) {
       await p.remove(_kPinHash);
+      await p.remove(_kPinSalt);
       hasPin.value = false;
     }
   }
 
   Future<void> setPin(String pin) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString(_kPinHash, pin);
+    final salt = _generateSalt();
+    await p.setString(_kPinSalt, salt);
+    await p.setString(_kPinHash, _hashPin(pin, salt));
     hasPin.value = true;
   }
 
   Future<bool> verifyPin(String pin) async {
     final p = await SharedPreferences.getInstance();
     final stored = p.getString(_kPinHash) ?? '';
-    return stored.isNotEmpty && stored == pin;
+    if (stored.isEmpty) return false;
+
+    final salt = p.getString(_kPinSalt) ?? '';
+    if (salt.isEmpty) {
+      // Legacy plaintext PIN (pre-hash rollout). Accept once if it
+      // matches, then silently upgrade to a salted hash so the next
+      // unlock takes the new code path.
+      if (stored == pin) {
+        await setPin(pin);
+        return true;
+      }
+      return false;
+    }
+    return stored == _hashPin(pin, salt);
   }
 
   void markUnlocked() => unlocked.value = true;
   void markLocked()   => unlocked.value = false;
+
+  // ── PIN crypto helpers ──────────────────────────────────
+  static String _generateSalt({int byteLength = 16}) {
+    final rng = Random.secure();
+    final bytes = List<int>.generate(byteLength, (_) => rng.nextInt(256));
+    return base64Url.encode(bytes);
+  }
+
+  static String _hashPin(String pin, String salt) {
+    final bytes = utf8.encode('$salt:$pin');
+    return sha256.convert(bytes).toString();
+  }
 }

@@ -8,9 +8,19 @@ import '../features/auth/controllers/storage_keys.dart';
 // request — the backend reads `req.cookies.token`, populates
 // `req.user`, and the audit-fields plugin records who did what.
 class ApiClient {
+  // Read the backend root from --dart-define=BASE_URL=... at build
+  // time so dev/staging/prod APKs can ship the same code with
+  // different backends. The hardcoded value remains as a fallback so
+  // running `flutter run` locally still works without flags.
+  static const _defaultBaseUrl = 'http://13.233.117.153:2701/api/v2';
+  static const String baseUrl = String.fromEnvironment(
+    'BASE_URL',
+    defaultValue: _defaultBaseUrl,
+  );
+
   ApiClient._internal() {
     dio = Dio(BaseOptions(
-      baseUrl:        'http://13.233.117.153:2701/api/v2',
+      baseUrl:        baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
     ));
