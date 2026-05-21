@@ -7,9 +7,12 @@ import '../../../core/safe_json.dart';
 import '../../../theme/erp_theme.dart';
 import '../../auth/controllers/login_controller.dart';
 
-/// Loads the logged-in employee's open shifts and submits the
-/// production count for the selected one. Re-uses the existing
-/// admin endpoints (`/shift/employee-open-shifts`, `/shift/enter-shift-production`).
+/// Loads the logged-in employee's open + pending-verification shifts
+/// and submits production. A fresh `open` shift goes to
+/// `/shift/enter-shift-production`; a `pending_verification` edit
+/// (worker correcting before admin approval) goes to `/shift/update`,
+/// which the backend gates on the same two statuses and re-lands the
+/// values in the submitted* fields without cascading totals.
 class ShiftProductionController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
@@ -22,6 +25,15 @@ class ShiftProductionController extends GetxController {
   final timerCtrl      = TextEditingController();
   final feedbackCtrl   = TextEditingController();
   final errorMsg       = Rxn<String>();
+
+  /// True when the currently selected shift is already in
+  /// `pending_verification` (i.e. previously submitted, awaiting
+  /// admin approval). The page uses this to swap CTA labels and the
+  /// submit() method uses it to route to /shift/update vs the
+  /// /enter-shift-production "close" route.
+  bool get isEditingPending =>
+      SafeJson.asString(selectedShift.value?['status']) ==
+          'pending_verification';
 
   String get _employeeId =>
       LoginController.find.user.value.employeeId ?? '';
@@ -40,7 +52,7 @@ class ShiftProductionController extends GetxController {
     super.onClose();
   }
 
-  // ── Fetch open shifts ──────────────────────────────────────
+  // ── Fetch open + pending-verification shifts ───────────────
   Future<void> fetchOpen() async {
     if (_employeeId.isEmpty) {
       errorMsg.value =
@@ -67,17 +79,28 @@ class ShiftProductionController extends GetxController {
     }
   }
 
+  /// Opens the sheet for a shift. For an `open` shift the form is
+  /// blank; for `pending_verification` we pre-fill the existing
+  /// submitted values so the worker can correct them in place.
   void selectShift(Map<String, dynamic> shift) {
     selectedShift.value = shift;
-    productionCtrl.clear();
-    timerCtrl.clear();
-    feedbackCtrl.clear();
+    if (SafeJson.asString(shift['status']) == 'pending_verification') {
+      final prod = shift['submittedProductionMeters'];
+      productionCtrl.text = prod == null ? '' : prod.toString();
+      timerCtrl.text      = SafeJson.asString(shift['submittedTimer']);
+      feedbackCtrl.text   = SafeJson.asString(shift['submittedFeedback']);
+    } else {
+      productionCtrl.clear();
+      timerCtrl.clear();
+      feedbackCtrl.clear();
+    }
   }
 
   // ── Submit ────────────────────────────────────────────────
   Future<bool> submit() async {
     final s = selectedShift.value;
     if (s == null) return false;
+    if (isSubmitting.value) return false;
 
     final production = double.tryParse(productionCtrl.text.trim());
     if (production == null || production < 0) {
@@ -88,13 +111,24 @@ class ShiftProductionController extends GetxController {
 
     isSubmitting.value = true;
     try {
-      await _dio.post('/shift/enter-shift-production', data: {
-        'id':         s['_id'],
-        'production': production,
-        'timer':      timerCtrl.text.trim(),
-        'feedback':   feedbackCtrl.text.trim(),
-      });
-      _snack('Saved', 'Shift production recorded', error: false);
+      if (isEditingPending) {
+        await _dio.post('/shift/update', data: {
+          'shiftId':    s['_id'],
+          'production': production,
+          'timer':      timerCtrl.text.trim(),
+          'feedback':   feedbackCtrl.text.trim(),
+        });
+        _snack('Updated', 'Submission updated — still awaiting approval',
+            error: false);
+      } else {
+        await _dio.post('/shift/enter-shift-production', data: {
+          'id':         s['_id'],
+          'production': production,
+          'timer':      timerCtrl.text.trim(),
+          'feedback':   feedbackCtrl.text.trim(),
+        });
+        _snack('Saved', 'Shift production recorded', error: false);
+      }
       selectedShift.value = null;
       await fetchOpen();
       return true;
