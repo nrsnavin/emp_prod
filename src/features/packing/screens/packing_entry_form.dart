@@ -488,7 +488,8 @@ class _PackingEntryFormPageState extends State<PackingEntryFormPage> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
         FilteringTextInputFormatter.allow(
-            isDouble ? RegExp(r'[\d.]') : RegExp(r'\d')),
+            // Digits with at most one decimal point when isDouble.
+            isDouble ? RegExp(r'^\d*\.?\d*$') : RegExp(r'\d')),
       ],
       style:        ErpTextStyles.fieldValue,
       decoration: ErpDecorations.formInput(
