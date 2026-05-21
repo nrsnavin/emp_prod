@@ -77,6 +77,10 @@ class _ShiftCard extends StatelessWidget {
     final machine    = SafeJson.asString(machineMap['ID'], '—');
     final runningMap = SafeJson.asMap(machineMap['orderRunning']);
     final orderRunning = SafeJson.asString(runningMap['orderNo']);
+    final status = SafeJson.asString(shift['status'], 'open');
+    final isPending = status == 'pending_verification';
+    final submittedProd = shift['submittedProductionMeters'];
+    final submittedTimer = SafeJson.asString(shift['submittedTimer']);
 
     return InkWell(
       onTap: () => _openSheet(context),
@@ -92,13 +96,20 @@ class _ShiftCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: ErpColors.statusOpenBg,
-                  border: Border.all(color: ErpColors.statusOpenBorder),
+                  color: isPending
+                      ? ErpColors.warningAmber.withOpacity(0.15)
+                      : ErpColors.statusOpenBg,
+                  border: Border.all(
+                      color: isPending
+                          ? ErpColors.warningAmber
+                          : ErpColors.statusOpenBorder),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('OPEN',
+                child: Text(isPending ? 'PENDING REVIEW' : 'OPEN',
                     style: TextStyle(
-                        color: ErpColors.statusOpenText,
+                        color: isPending
+                            ? ErpColors.warningAmber
+                            : ErpColors.statusOpenText,
                         fontSize: 10,
                         fontWeight: FontWeight.w800)),
               ),
@@ -117,6 +128,21 @@ class _ShiftCard extends StatelessWidget {
             _kv(Icons.precision_manufacturing_outlined, 'Machine', machine),
             if (orderRunning.isNotEmpty)
               _kv(Icons.receipt_long_outlined, 'Order #', orderRunning),
+            if (isPending) ...[
+              const SizedBox(height: 6),
+              _kv(Icons.straighten_outlined, 'Submitted production',
+                  submittedProd == null ? '—' : '$submittedProd m'),
+              if (submittedTimer.isNotEmpty)
+                _kv(Icons.timer_outlined, 'Submitted timer', submittedTimer),
+              const SizedBox(height: 4),
+              Text(
+                'Tap to edit before your supervisor approves.',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: ErpColors.warningAmber.withOpacity(0.9),
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
           ],
         ),
       ),
@@ -183,17 +209,29 @@ class _EnterProductionSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          const Text('Close Shift',
-              style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: ErpColors.textPrimary)),
-          const SizedBox(height: 4),
-          const Text(
-            'Enter the production count for this shift. Saving closes the shift.',
-            style: TextStyle(
-                color: ErpColors.textSecondary, fontSize: 12),
-          ),
+          Obx(() {
+            final editing = c.isEditingPending;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(editing ? 'Edit Submission' : 'Close Shift',
+                    style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: ErpColors.textPrimary)),
+                const SizedBox(height: 4),
+                Text(
+                  editing
+                      ? 'Correct your numbers before the supervisor approves. '
+                          'Updating keeps the shift in Pending Review.'
+                      : 'Enter the production count for this shift. '
+                          'Saving sends it for supervisor approval.',
+                  style: const TextStyle(
+                      color: ErpColors.textSecondary, fontSize: 12),
+                ),
+              ],
+            );
+          }),
           const SizedBox(height: 16),
           TextField(
             controller: c.productionCtrl,
@@ -259,7 +297,9 @@ class _EnterProductionSheet extends StatelessWidget {
                       : const Icon(Icons.check_rounded,
                           color: Colors.white, size: 18),
                   label: Text(
-                    c.isSubmitting.value ? 'Saving…' : 'Close Shift',
+                    c.isSubmitting.value
+                        ? 'Saving…'
+                        : (c.isEditingPending ? 'Update' : 'Close Shift'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
