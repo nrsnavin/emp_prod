@@ -58,6 +58,10 @@ class FeedbackController extends GetxController {
       _snack('Validation', 'Subject and body are required', error: true);
       return false;
     }
+    // Reject re-entry while a previous submit is still in flight.
+    // The disabled-button Obx rebuild is async, so a fast double tap
+    // can otherwise fire two POSTs.
+    if (isSubmitting.value) return false;
     isSubmitting.value = true;
     try {
       await _dio.post('/feedback', data: {
