@@ -388,7 +388,10 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                // Allow only digits with at most one decimal point so
+                // double.tryParse on submit doesn't silently fail on
+                // strings like "1.2.3".
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
               ],
               style: ErpTextStyles.fieldValue,
               decoration: ErpDecorations.formInput(
@@ -413,7 +416,10 @@ class _WastageEntryFormPageState extends State<WastageEntryFormPage> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                // Allow only digits with at most one decimal point so
+                // double.tryParse on submit doesn't silently fail on
+                // strings like "1.2.3".
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
               ],
               style: ErpTextStyles.fieldValue,
               decoration: ErpDecorations.formInput(

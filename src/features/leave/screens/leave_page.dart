@@ -218,7 +218,11 @@ class _LeaveCard extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.w600)),
           ],
-          if (cancellable && onCancel != null) ...[
+          // Only render the cancel button when we actually have an
+          // id to send to DELETE — otherwise the tap produces a 404.
+          if (cancellable &&
+              onCancel != null &&
+              SafeJson.asString(l['id'] ?? l['_id']).isNotEmpty) ...[
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,

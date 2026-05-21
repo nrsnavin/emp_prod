@@ -164,7 +164,7 @@ class ProfileController extends GetxController {
             SafeJson.asDateTime(b['createdAt']) ?? DateTime(1970);
         return db.compareTo(da);
       });
-      recentShifts.assignAll(list.take(5));
+      recentShifts.assignAll(list.take(5).toList());
     } catch (_) {
       recentShifts.clear();
     }

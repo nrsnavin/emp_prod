@@ -27,7 +27,10 @@ class _WarpingDetailPageState extends State<WarpingDetailPage>
   @override
   void initState() {
     super.initState();
-    final id = Get.arguments as String;
+    // Guard the route argument — a malformed deep-link or programmatic
+    // Get.to(...) without arguments used to crash the page on cast.
+    final arg = Get.arguments;
+    final id = (arg is String && arg.isNotEmpty) ? arg : '';
     Get.delete<WarpingDetailController>(force: true);
     c    = Get.put(WarpingDetailController(id));
     _tab = TabController(length: 2, vsync: this);
