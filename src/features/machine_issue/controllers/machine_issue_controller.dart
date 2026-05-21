@@ -90,6 +90,9 @@ class MachineIssueController extends GetxController {
           error: true);
       return false;
     }
+    // Guard against double-tap: the disabled-button Obx rebuild is
+    // async, so two fast taps could otherwise fire two POSTs.
+    if (isSubmitting.value) return false;
     isSubmitting.value = true;
     try {
       await _dio.post('/machine-issue', data: {
