@@ -100,29 +100,26 @@ class _ShiftCard extends StatelessWidget {
     final shiftLabel = SafeJson.asString(s['shift'], '—');
     final status     = SafeJson.asString(s['status'], 'open').toLowerCase();
 
-    // Pending entries carry the worker's value in the new `submitted*`
-    // fields (admin hasn't blessed them yet, so `productionMeters` /
-    // `timer` / `feedback` are still 0/blank). Fall back to those so
-    // the worker sees what they typed.
+    // Pending entries carry the worker's value in the `submitted*`
+    // fields. Show the submitted* numbers strictly for pending rows
+    // so an admin-edit-in-flight can never appear as if it were the
+    // worker's own submission. Closed rows show the final admin
+    // numbers from `production` / `timer`.
     final isPending  = status == 'pending_verification';
     final isClosed   = status == 'closed';
 
     final productionRaw = isPending
-        ? (SafeJson.asNum(s['submittedProductionMeters']) ??
-           SafeJson.asNum(s['production']) ??
-           SafeJson.asNum(s['productionMeters']))
+        ? SafeJson.asNum(s['submittedProductionMeters'])
         : (SafeJson.asNum(s['production']) ??
            SafeJson.asNum(s['productionMeters']));
     final production = productionRaw?.toString() ?? '—';
 
     final timer = isPending
-        ? SafeJson.asString(s['submittedTimer'],
-            SafeJson.asString(s['timer'], '—'))
+        ? SafeJson.asString(s['submittedTimer'], '—')
         : SafeJson.asString(s['timer'], '—');
 
     final feedback = isPending
-        ? SafeJson.asString(s['submittedFeedback'],
-            SafeJson.asString(s['feedback']))
+        ? SafeJson.asString(s['submittedFeedback'])
         : SafeJson.asString(s['feedback']);
 
     // Pill colours per status. Pending = amber, closed = green, open = blue.
