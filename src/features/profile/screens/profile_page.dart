@@ -82,8 +82,15 @@ class _HeroHeader extends StatelessWidget {
   const _HeroHeader({required this.user});
 
   String get _initials {
-    final parts = user.name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    // Build a list of non-empty word fragments so a trailing/leading
+    // space or a name with only whitespace can't crash
+    // `.characters.first` on an empty string.
+    final parts = user.name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first.characters.first.toUpperCase();
     return (parts.first.characters.first + parts.last.characters.first)
         .toUpperCase();
