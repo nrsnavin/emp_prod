@@ -54,6 +54,13 @@ void installGlobalErrorHandlers() {
   };
 }
 
+/// The `runZonedGuarded` handler in `main()`: async errors that reach
+/// no try/catch are logged and shown, like every other uncaught error.
+void reportZoneError(Object error, StackTrace stack) {
+  _logError(error, stack, context: 'zone');
+  _notifyUser(error);
+}
+
 void _logError(Object error, StackTrace? stack, {String? context}) {
   developer.log(
     'Uncaught error${context != null ? " ($context)" : ""}: $error',

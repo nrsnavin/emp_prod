@@ -25,10 +25,7 @@ Future<void> main() async {
       // Locale init is best-effort; default to en-US if it fails.
     }
     runApp(const EmployeeApp());
-  }, (error, stack) {
-    // Hooked into the same logger / snackbar as the framework error
-    // handler. Returning silently keeps the app alive.
-  });
+  }, reportZoneError); // logged and shown; the app stays alive
 }
 
 class EmployeeApp extends StatelessWidget {
