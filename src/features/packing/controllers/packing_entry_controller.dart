@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/safe_json.dart';
+import '../../../core/request_id.dart';
 
 // ══════════════════════════════════════════════════════════════
 //  PACKING ENTRY CONTROLLER (worker)
@@ -177,6 +180,14 @@ class PackingEntryController extends GetxController {
     }
   }
 
+  // Idempotency key for the current packing, as in the admin app. Kept
+  // across resends of the SAME entry (a timeout may have landed on the
+  // server, which records each key once) and rotated when anything sent
+  // changes or after a confirmed save, so a resend can't pack the same
+  // roll twice and an edited resubmit isn't swallowed as a duplicate.
+  String? _requestId;
+  String? _requestSig;
+
   // ── Submit ─────────────────────────────────────────────
   Future<bool> submit({required String jobId}) async {
     final meter   = double.tryParse(meterCtrl.text.trim());
@@ -229,7 +240,7 @@ class PackingEntryController extends GetxController {
 
     isSubmitting.value = true;
     try {
-      await _dio.post('/packing/create-packing', data: {
+      final payload = <String, dynamic>{
         'job':         jobId,
         'elastic':     selectedElasticId.value,
         'meter':       meter,
@@ -241,7 +252,14 @@ class PackingEntryController extends GetxController {
         if (size.isNotEmpty)    'size':    size,
         'checkedBy':   selectedCheckedById.value,
         'packedBy':    selectedPackedById.value,
-      });
+      };
+      final sig = jsonEncode(payload);
+      if (_requestId == null || sig != _requestSig) {
+        _requestId = newRequestId();
+        _requestSig = sig;
+      }
+      await _dio.post('/packing/create-packing', data: {...payload, 'requestId': _requestId});
+      _requestId = null; // the next roll is a new business event
       _clearForm();
       _snack(
         'Packing Saved',
