@@ -2,11 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/app_settings_controller.dart';
 import '../../../core/safe_json.dart';
 import '../../auth/controllers/login_controller.dart';
 
 /// Loads active announcements for the worker's department from
-/// `GET /announcement/active?dept=`.
+/// `GET /announcement/active?dept=&lang=` — in the app's language where
+/// the notice has been translated.
 class NoticeBoardController extends GetxController {
   Dio get _dio => ApiClient.instance.dio;
 
@@ -37,7 +39,12 @@ class NoticeBoardController extends GetxController {
     try {
       final res = await _dio.get(
         '/announcement/active',
-        queryParameters: {'dept': _dept},
+        // The app's language: the server answers with the notice in
+        // Tamil or Hindi where it has one, English otherwise.
+        queryParameters: {
+          'dept': _dept,
+          'lang': AppSettingsController.find.locale.value.languageCode,
+        },
       );
       notices.assignAll(
           SafeJson.asMapList(SafeJson.asMap(res.data)['data']));
