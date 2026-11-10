@@ -17,7 +17,10 @@ import 'storage_keys.dart';
 ///                    + refresh the linked employee fields.
 ///   2. Login form  → `tryLogin()` posts to /user/login-user, persists
 ///                    the cookie, then calls /user/me.
-///   3. Logout      → clears prefs + Rx state.
+///   3. Logout      → ends the session on the server, then clears
+///                    prefs + Rx state. The same clearing happens when
+///                    the server refuses the session (ApiClient
+///                    .onSessionEnded).
 ///
 /// AuthGate watches [isCheckingAuth] + [isLoggedIn] to pick between
 /// the splash spinner, the login screen, and the home dashboard.
@@ -39,6 +42,11 @@ class LoginController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // The server no longer accepts this session: clear it here too.
+    // (No call back to the server — it is the one that said so.)
+    ApiClient.onSessionEnded = () {
+      if (isLoggedIn.value) logout(tellServer: false);
+    };
     _handleAutoLogin();
   }
 
@@ -60,9 +68,16 @@ class LoginController extends GetxController {
         await _persistSession(prefs, u, storedToken);
         user.value     = u;
         isLoggedIn.value = true;
-      } on DioException {
-        // Offline / expired — render from prefs so the user still sees
-        // their dashboard. Re-authenticating fixes the JWT next online.
+      } on DioException catch (e) {
+        // The server answered and refused the session (signed out,
+        // password changed, the login closed): show the sign-in screen,
+        // not a dashboard nothing will load into.
+        if (e.response?.statusCode == 401) {
+          await logout(tellServer: false);
+          return;
+        }
+        // Offline — render from prefs so the user still sees their
+        // dashboard; the session is checked again next time online.
         if (prefs.getBool(StorageKeys.isLoggedIn) == true) {
           user.value = EmployeeUser(
             userId:       prefs.getString(StorageKeys.userId)     ?? '',
@@ -126,8 +141,20 @@ class LoginController extends GetxController {
   }
 
   // ── Logout ───────────────────────────────────────────────────
-  Future<void> logout() async {
+  //
+  // Signing out ends the session on the server as well. It used to
+  // only forget the token on this phone, and the token itself stayed
+  // good — for whoever else had a copy — until it expired.
+  Future<void> logout({bool tellServer = true}) async {
     final prefs = await SharedPreferences.getInstance();
+    if (tellServer && (prefs.getString(StorageKeys.token) ?? '').isNotEmpty) {
+      try {
+        // While the token is still stored: the request carries it.
+        await _dio.post('/user/logout');
+      } catch (_) {
+        // Offline or already ended: sign out here regardless.
+      }
+    }
     await prefs.remove(StorageKeys.token);
     await prefs.remove(StorageKeys.userId);
     await prefs.remove(StorageKeys.userName);

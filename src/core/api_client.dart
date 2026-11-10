@@ -23,6 +23,14 @@ class ApiClient {
     defaultValue: _defaultBaseUrl,
   );
 
+  /// Called when the server refuses the session this app holds (a 401
+  /// on a request that carried the token): signed out elsewhere, the
+  /// password changed, or the login closed because the employee has
+  /// left. The login controller sets this, so the app goes back to the
+  /// sign-in screen instead of showing screens whose every request
+  /// fails.
+  static void Function()? onSessionEnded;
+
   ApiClient._internal() {
     dio = Dio(BaseOptions(
       baseUrl:        baseUrl,
@@ -39,6 +47,14 @@ class ApiClient {
             options.headers['Cookie'] = 'token=$token';
           }
           handler.next(options);
+        },
+        onError: (e, handler) {
+          // Only a request that sent a token: a wrong password on the
+          // sign-in screen is a 401 too, and ends nothing.
+          final refused = e.response?.statusCode == 401 &&
+              e.requestOptions.headers.containsKey('Cookie');
+          if (refused) onSessionEnded?.call();
+          handler.next(e);
         },
       ),
     );

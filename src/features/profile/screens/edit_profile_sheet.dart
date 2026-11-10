@@ -75,7 +75,9 @@ Future<void> showEditProfileSheet(BuildContext context) async {
                 keyboardType: TextInputType.emailAddress,
                 validator: (v) {
                   final s = v?.trim() ?? '';
-                  if (s.isEmpty) return 'Required';
+                  // A login that signs in by phone has no email, and
+                  // need not get one to change a name or a number.
+                  if (s.isEmpty) return u.email.isEmpty ? null : 'Required';
                   final re = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
                   if (!re.hasMatch(s)) return 'Invalid email';
                   return null;
@@ -119,7 +121,8 @@ Future<void> showEditProfileSheet(BuildContext context) async {
                                   '/user/me',
                                   data: {
                                     'name':        newName,
-                                    'email':       newEmail,
+                                    // Left blank = left as it is.
+                                    if (newEmail.isNotEmpty) 'email': newEmail,
                                     'phoneNumber': newPhone,
                                   },
                                 );
