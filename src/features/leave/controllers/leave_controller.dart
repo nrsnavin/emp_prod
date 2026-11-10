@@ -71,7 +71,7 @@ class LeaveController extends GetxController {
   Future<bool> submit({
     required DateTime date,
     required String shift,        // DAY | NIGHT | BOTH
-    required String leaveType,    // casual | sick | earned | unpaid
+    required String leaveType,    // casual | sick | unpaid
     required String reason,
   }) async {
     if (reason.trim().isEmpty) {

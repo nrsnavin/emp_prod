@@ -346,14 +346,14 @@ class _RequestSheetState extends State<_RequestSheet> {
           ),
           const SizedBox(height: 10),
 
-          // Leave type
+          // Leave type. The three the server takes: "Earned" was offered
+          // here too, and choosing it was refused every time.
           DropdownButtonFormField<String>(
             value: _leaveType,
             decoration: ErpDecorations.formInput('Leave Type *'),
             items: const [
               DropdownMenuItem(value: 'casual', child: Text('Casual')),
               DropdownMenuItem(value: 'sick',   child: Text('Sick')),
-              DropdownMenuItem(value: 'earned', child: Text('Earned')),
               DropdownMenuItem(value: 'unpaid', child: Text('Unpaid')),
             ],
             onChanged: (v) => setState(() => _leaveType = v ?? 'casual'),
