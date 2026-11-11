@@ -10,6 +10,12 @@ on its first screen:
 | Employees | **SIGN IN AS EMPLOYEE** | the phone number on their employee record and a PIN the office sets |
 | Floor supervisor | **Floor entry with the shift PIN** | the shift's four-digit PIN (no login) |
 
+Both sign-in forms link to each other, so an employee who has an email
+login can use it too ("Sign in with email instead"), and the email form
+offers "Employee? Sign in with phone and PIN". Either way, the server
+decides which screens open: a worker's login lands on the employee
+screens, an office login on the office screens.
+
 This repository is kept for reference only. Do not build or release it
 again; once the new app is on a worker's phone, uninstall this one.
 
@@ -51,3 +57,6 @@ again; once the new app is on a worker's phone, uninstall this one.
 - Warping, covering, wastage and packing entries are office modules on
   the server, so a worker's phone sign-in is not shown those tiles.
   Office logins see them, as before.
+- Floor entry on the phone can take the run time from a photo of the
+  loom's timer, as the web does, and keeps the photo with the shift for
+  whoever verifies it.
